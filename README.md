@@ -2,4 +2,5 @@
 
 Making use of Scala parser combinators to build a cron dsl library.
 
-The only thing done so far, is a rough draft of grammar rules.
+The only thing done so far, is a rough draft of grammar rules, and
+starter implementation for parsing.
