@@ -21,18 +21,18 @@ This dsl library makes that assumption as well... in fact all are legitimate cro
 
 - Keywords like `through` and `to` to represent `-` in cron.
 
-    "Every month on Monday through Wednesday at midnight".crons == "0 0 * * 1-3"
+        "Every month on Monday through Wednesday at midnight".crons == "0 0 * * 1-3"
 
 - The generated `Cron` object will have a `run` method to execute arbitrary code, ex:
 
-    "Every 1st day in April at midnight".cron run {
-      println("April fools!")
-    }
+        "Every 1st day in April at midnight".cron run {
+          println("April fools!")
+        }
 
 - Keyword `last` where it is acceptable, ex:  
 
-    "Every last day of the month".crons == "* * L * *"
+        "Every last day of the month".crons == "* * L * *"
 
 - Commas will be acceptable repetition
 
-    "Every day at midnight in January, March, May, August, and December".crons == "0 0 * 1,3,5,8,12 *"
+        "Every day at midnight in January, March, May, August, and December".crons == "0 0 * 1,3,5,8,12 *"
