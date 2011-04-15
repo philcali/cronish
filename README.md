@@ -21,6 +21,7 @@ This dsl library makes that assumption as well... in fact:
 
 - Keywords like `through` and `to` to represent `-` in cron.
 - The generated `Cron` object will have a `run` method to execute arbitrary code, ex:
-            "Every 1st day in April at midnight".cron run {
-              println("April fools!")
-            }
+
+        "Every 1st day in April at midnight".cron run {
+          println("April fools!")
+        }
