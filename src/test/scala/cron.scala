@@ -29,7 +29,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     "every day in April, June, and August at midnight".crons should be === "0 0 * 4,6,8 *"
     "every month at midnight and noon on Sunday".crons should be === "0 0,12 * * 0"
     "every 3 hours on Monday, Wednesday, and Friday".crons should be === "* */3 * * 1,3,5"
-    "every month on the 1st, 3rd, 4th, and 8th day".crons should be === "* * 1,3,4,8 * *"
+    "every month on the 1st, 3rd, 4th, and 8th days".crons should be === "* * 1,3,4,8 * *"
     "every day at 1am, 4am, 12pm, and 1pm".crons should be === "0 1,4,12,13 * * *"
   }
 
