@@ -17,22 +17,14 @@ This dsl library makes that assumption as well... in fact all are legitimate cro
     "Every 1st day in April at midnight".crons == "0 0 1 4 *"
     "Every day on the weekday at 3:30".crons == "30 3 * * 1-5"
 
-## What to expect
+Let's take this excerpt from the [cron] article on Wikipedia:
 
-- Keywords like `through` and `to` to represent `-` in cron.
+    In 2003 CE on the 11th to 26th of each month in January to June every third minute starting from 2 past 1am, 9am and 10pm
 
-        "Every month on Monday through Wednesday at midnight".crons == "0 0 * * 1-3"
+Using cronish, we can almost write this verbatim...
 
-- The generated `Cron` object will have a `run` method to execute arbitrary code, ex:
+    "Every 3 minutes in the year 2003 on the 11th to 26th day in January to June at 1am, 9am, and 10pm".cron
 
-        "Every 1st day in April at midnight".cron run {
-          println("April fools!")
-        }
+    Cron("0", "*/3", "1,9,22", "11-26", "1-6", "*", "2003")
 
-- Keyword `last` where it is acceptable, ex:  
 
-        "Every last day of the month".crons == "* * L * *"
-
-- Commas will be acceptable repetition
-
-        "Every day at midnight in January, March, May, August, and December".crons == "0 0 * 1,3,5,8,12 *"

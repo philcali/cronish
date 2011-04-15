@@ -4,11 +4,13 @@ package dsl
 import scala.util.parsing.combinator._
 import com.github.philcali.scalendar.{Month, Day}
 
-object CronSyntax {
-  implicit def string2cron(syntax: String) = new CronSyntax(syntax)
-}
-
-case class Cron(minute: String, hour: String, dmonth: String, month: String, dweek: String) {
+case class Cron(second: String, 
+                minute: String, 
+                hour: String, 
+                dmonth: String, 
+                month: String, 
+                dweek: String,
+                year: String) {
   override def toString = List(minute, hour, dmonth, month, dweek) mkString (" ")
 }
 
@@ -35,10 +37,12 @@ class CronSyntax(syntax: String) extends RegexParsers {
   val every = "Every" | "every"
   val other = "other".r
   val lists = "through" | "to" | "-"
+  val secondKey= field("second")
   val minuteKey = field("minute")
   val dayKey = field("day") 
   val monthKey = field("month")
   val hourKey = field("hour")
+  val yearKey = field("year")
 
   // Values
   def monthValue = (monthnames).mkString("|").r ^^ {
@@ -47,15 +51,22 @@ class CronSyntax(syntax: String) extends RegexParsers {
   def dayValue = (daynames).mkString("|").r ^^ {
     case day => (Day.values.find(_.toString == day).get.id - 1).toString
   }
-  def hourValue = number 
-  def minuteValue = """\d{2}""".r 
-  def timeValue = hourValue~":"~minuteValue ^^ {
-    case hours~":"~minutes => (hours, if(minutes.startsWith("0")) minutes.substring(1,2) else minutes)
+  def hourValue = am | pm
+  def smallValue = """\d{2}""".r 
+  def clockValue = number~":"~smallValue ^^ {
+    case hours~":"~minutes => (hours, (if(minutes.startsWith("0")) minutes.substring(1,2) 
+                                      else minutes), "0")
+  }
+  def fullClockValue = clockValue~":"~smallValue ^^ {
+    case (hours, minutes, _)~":"~seconds => (hours, minutes, seconds)
   }
 
+  def timeValue = hourValue | clockValue 
+  def yearValue = """\d{4}""".r ^^ { case year => Map("year" -> year) }
+
   // Descriptors
-  val noon = "noon" ^^ (_ => ("12", "0"))
-  val midnight = "midnight" ^^ (_ => ("0", "0"))
+  val noon = "noon" ^^ (_ => ("12", "0", "0"))
+  val midnight = "midnight" ^^ (_ => ("0", "0", "0"))
   val weekday = "weekday" ^^ (_ => "1-5")
   val weekend = "weekend" ^^ (_ => "0,6")
 
@@ -63,8 +74,15 @@ class CronSyntax(syntax: String) extends RegexParsers {
   val at = "at".r
   val the = "the".r
   val number = """\d{1,2}""".r
+  val am = number <~ "am" ^^ { 
+    case hour => (hour, "0", "0") 
+  }
+  val pm = number <~ "pm" ^^ {
+    case hour => if(hour.toInt < 12) ((hour.toInt + 12).toString, "0", "0") else (hour, "0", "0") 
+  }
   val st = number <~ "st"
   val nd = number <~ "nd"
+  val rd = number <~ "rd"
   val th = number <~ "th"
 
   def otherWhat(key: String) = {
@@ -79,25 +97,50 @@ class CronSyntax(syntax: String) extends RegexParsers {
     }
   }
 
-  def hourConnector = at ~> (timeValue | midnight | noon) ^^ {
-    case (hours, minutes) => Map("hour" -> hours, "minute" -> minutes)
+  def timeSymbol = (timeValue | midnight | noon) ^^ {
+    case (hours, minutes, seconds) => 
+      Map("hour" -> hours, "minute" -> minutes, "second" -> seconds)
   }
-  
-  def dayOfMonth = (st | nd | th | "last")
 
-  def numberDayOfMonth = dayOfMonth <~ "day" ^^ {
+  def timeRep = rep1sep(timeSymbol, repitition) ^^ {
+    case times => 
+      val hours = times.map(_.apply("hour")).distinct.mkString(",")
+      val minutes = times.map(_.apply("minute")).distinct.mkString(",")
+      Map("hour" -> hours, "minute" -> minutes)
+  }
+
+
+  def timeLists = timeSymbol ~ lists ~ timeSymbol ^^ {
+    case start ~ lists ~ end =>
+      def grabValue(key: String) = {
+        if(start(key) == end(key)) start(key)
+        else if(start(key).toInt > end(key).toInt) end(key) + "-" + start(key)
+        else start(key) + "-" + end(key)
+      }
+      Map("hour" -> grabValue("hour"), 
+          "minute" -> grabValue("minute"), 
+          "second" -> grabValue("second")) 
+  }
+
+  def timeConnector = at ~> (timeLists | timeRep | timeSymbol | timeIncrement)
+
+  def dayOfMonth = (st | nd | rd | th | "last") ^^ {
     case number if number == "last" => Map("day" -> "L")
     case number => Map("day" -> number)
   }
 
-  def dayConnector = "on" ~> (dayValue | the ~> (weekend | weekday | "last day of week")) ^^ {
+  def numberDayOfMonth = dayOfMonth <~ "day" 
+
+  def dayConnector = "on" ~> (dayLists | dayRepitition | dayOfWeek | dayIncrement)
+
+  def dayOfWeek = (dayValue | the ~> (weekend | weekday | "last day of week")) ^^ {
     case day if day == "last day of week" => Map("dweek" -> "L")
     case day => Map("dweek" -> day)
   }
 
-  val repitition = "," | ", and" | "and"
+  val repitition = (", and" | "," | "and")
 
-  def dayRepitition = repsep(dayValue, repitition) ^^ {
+  def dayRepitition = rep1sep(dayValue, repitition) ^^ {
     case days => Map("dweek" -> days.mkString(","))
   }
 
@@ -105,56 +148,76 @@ class CronSyntax(syntax: String) extends RegexParsers {
     case start ~ lists ~ end => Map("dweek" -> (start + "-" + end))
   }
 
-  def dayOfMonthRep = repsep(dayOfMonth, repitition) <~ "day" ^^ {
-    case days => Map("day" -> days.mkString(","))
+  def dayOfMonthRep = rep1sep(dayOfMonth, repitition) <~ "day" ^^ {
+    case days => Map("day" -> days.map(_.apply("day")).mkString(","))
   }
 
   def dayOfMonthLists = (dayOfMonth ~ lists ~ dayOfMonth) <~ "day" ^^ {
-    case start ~ lists ~ end => Map("day" -> (start + "-" + end))
+    case start ~ lists ~ end => Map("day" -> (start("day") + "-" + end("day")))
   }
 
-  def dayOfMonthConnector = "on the" ~> numberDayOfMonth
+  def dayOfMonthConnector = "on the" ~> (dayOfMonthLists | dayOfMonthRep | numberDayOfMonth) 
 
-  def monthConnector = "in" ~> monthValue
+  def monthConnector = "in" ~> (monthLists | monthRep| monthValue | monthIncrement)
 
-  def connector = hourConnector | dayConnector | monthConnector | dayOfMonthConnector
-  // Connectors can be strung together
-  // ex: at midnight in June on Sonday
-  def connectors = rep(connector)
+  def monthRep = rep1sep(monthValue, repitition) ^^ {
+    case months => Map("month" -> months.map(_.apply("month")).mkString(",")) 
+  }
+
+  def monthLists = monthValue ~ lists ~ monthValue ^^ {
+    case start ~ lists ~ end => Map("month" -> (start("month") + "-" + end("month")))
+  }
+
+  def yearConnector = "in the year" ~> (yearLists | yearRep | yearValue | yearIncrement)
+
+  def yearRep = rep1sep(yearValue, repitition) ^^ {
+    case years => Map("year" -> years.map(_.apply("year")).distinct.mkString(","))
+  }
+
+  def yearLists = yearValue ~ lists ~ yearValue ^^ {
+    case start ~ lists ~ end =>
+      Map("year" -> (start("year") + "-" + end("start")))
+  }
+
+  def connector = timeConnector | dayConnector | yearConnector | monthConnector | dayOfMonthConnector
+
+  def connectors = rep(connector) ^^ {
+    case values => values.foldLeft(Map[String,String]())(_ ++ _)
+  }
 
   // Incremental Syntax
+  def secondsIncrement = every ~> (secondKey | otherWhat("second") | timesWhat("second"))
+
   def minuteIncrement = every ~> (minuteKey | otherWhat("minute") | timesWhat("minute")) 
 
   def hourIncrement = every ~> (hourKey | otherWhat("hour") | timesWhat("hour"))
+
+  def timeIncrement = secondsIncrement | minuteIncrement | hourIncrement
 
   def dayGeneralIncrement = every ~> (dayKey | otherWhat("day") | timesWhat("day")) 
 
   def dayMIncrement = every ~> numberDayOfMonth
 
-  def dayWIncrement = every ~> dayValue
+  def dayWIncrement = every ~> dayValue ^^ {
+    case day => Map("dweek" -> day)
+  }
 
   def dayIncrement = dayGeneralIncrement | dayMIncrement | dayWIncrement 
 
   def monthIncrement = every ~> (monthKey | otherWhat("month") | timesWhat("month"))
 
-  def increment = minuteIncrement | hourIncrement | dayIncrement | monthIncrement
+  def yearIncrement = every ~> (yearKey | otherWhat("year") | timesWhat("year"))
+
+  def increment = timeIncrement | dayIncrement | yearIncrement | monthIncrement 
 
   def incrementers = increment ~ connectors ^^ {
-    case incremented ~ values => 
-    val first = incremented.asInstanceOf[Map[String, String]]
-    val second = values.asInstanceOf[List[Map[String,String]]]
-    applyModifers(second.foldLeft(Map[String,String]()) { (acc, m) =>
-      acc ++ m
-    } ++ first)
+    case incremented ~ values => applyModifers(values ++ incremented)
   }
 
   def applyModifers(result: Map[String, String]) = {
     val (mods, fin) = result.partition(_._1.endsWith("Modifier"))
     for((k, v) <- fin) yield((k, v + mods.getOrElse(k+"Modifier", "")))
   }
-
-  // Something like this for the finished result:
-  def finished = incrementers
 
   def cron = cronOption match {
     case Left(crond) => crond
@@ -164,14 +227,16 @@ class CronSyntax(syntax: String) extends RegexParsers {
   def crons = cron.toString
 
   def cronOption = {
-    parseAll(finished, syntax) match {
+    parseAll(incrementers, syntax) match {
       case Success(parsed, _) =>
         Left(Cron(
+          parsed.getOrElse("seconds", "0"),
           parsed.getOrElse("minute", "*"),
           parsed.getOrElse("hour", "*"),
           parsed.getOrElse("day", "*"),
           parsed.getOrElse("month", "*"),
-          parsed.getOrElse("dweek", "*")
+          parsed.getOrElse("dweek", "*"),
+          parsed.getOrElse("year", "*")
         ))
       case Failure(msg, _) =>
         Right(msg) 
