@@ -18,4 +18,10 @@ class CronTest extends FlatSpec with ShouldMatchers {
     "Every other month on the weekday at midnight".crons should be === "0 0 * */2 1-5"
     "Every other month at midnight on the weekday".crons should be === "0 0 * */2 1-5"
   }
+
+  "Cron syntax" should "support the 'last' keyword" in {
+    "Every month on the last day of week".crons should be === "* * * * L"
+    "Every last day".crons should be === "* * L * *"
+    evaluating { "Every last month".cron } should produce [Exception]
+  }
 }

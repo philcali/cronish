@@ -34,16 +34,11 @@ class CronSyntax(syntax: String) extends RegexParsers {
 
   val every = "Every" | "every"
   val other = "other".r
-  val lists = "through" | "until" | "to"
+  val lists = "through" | "to"
   val minuteKey = field("minute")
-  val minutesKey = "minutes".r
   val dayKey = field("day") 
-  val daysKey = "days".r 
   val monthKey = field("month")
-  val monthsKey = "months".r
   val hourKey = field("hour")
-  val hoursKey = "hours".r
-  val from = "from".r
 
   // Values
   def monthValue = (monthnames).mkString("|").r 
@@ -84,11 +79,13 @@ class CronSyntax(syntax: String) extends RegexParsers {
     case (hours, minutes) => Map("hour" -> hours, "minute" -> minutes)
   }
   
-  def numberDayOfMonth = (st | nd | th) <~ "day" ^^ {
+  def numberDayOfMonth = (st | nd | th | "last") <~ "day" ^^ {
+    case number if number == "last" => Map("day" -> "L")
     case number => Map("day" -> number)
   }
 
-  def dayConnector = "on" ~> (dayValue | the ~> (weekend | weekday)) ^^ {
+  def dayConnector = "on" ~> (dayValue | the ~> (weekend | weekday | "last day of week")) ^^ {
+    case day if day == "last day of week" => Map("dweek" -> "L")
     case day => 
       val found = Day.values.find(_.toString == day) match {
         case Some(d) => (d.id - 1).toString
