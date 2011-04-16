@@ -2,7 +2,50 @@ package com.philipcali.cron
 package dsl
 
 import scala.util.parsing.combinator._
-import com.github.philcali.scalendar.{Month, Day}
+import com.github.philcali.scalendar._
+import math.abs
+
+object FieldModifier {
+  def unapply(field: String) = {
+    if(!field.contains("/")) None
+    else {
+      Some(field.split("/")(1).toInt)
+    }
+  }
+}
+
+object FieldList {
+  def unapply(field: String) = {
+    if(!field.contains("-")) None
+    else {
+      val fs = field.split("-")
+      Some((fs(0).toInt, fs(1).toInt))
+    }
+  }
+}
+
+object FieldReps {
+  def unapply(field: String) = {
+    if(!field.contains(",")) None
+    else {
+      Some(field.split(",").map(_.toInt))
+    }
+  }
+}
+
+trait FieldValue {
+  val value: Int
+  def get: FieldValue 
+}
+
+case class Actual(value: Int) extends FieldValue {
+  def get = Actual(value)
+}
+
+case class Potential(value: Int) extends FieldValue {
+  // Flatten
+  def get = Actual(0)
+}
 
 case class Cron (second: String, 
                  minute: String, 
@@ -12,6 +55,83 @@ case class Cron (second: String,
                  dweek: String,
                  year: String) {
   override def toString = List(minute, hour, dmonth, month, dweek) mkString (" ")
+
+  private def pullDateValue(field: String, now: Scalendar, 
+                            valued: Scalendar => Int, modifier: Int => conversions.Evaluated) = {
+    field match {
+      case "*" => Potential(valued(now)) 
+      case FieldModifier(mod) => Actual(valued(now + modifier(mod)))
+      case FieldList(start, end) => 
+        if(start > valued(now)) Actual(start) else Actual(end)
+      case FieldReps(fields) => 
+        fields.find(_ >= valued(now)) match {
+          case Some(f) => Actual(f)
+          case None => Potential(valued(now))
+        }
+      case _ => Actual(field.toInt)
+    }
+  }
+
+  private def conversionPlan(ix: Int) = ix match {
+    case 0 => (x: Long) => x / 1000
+    case 1 => (x: Long) => x / 1000 / 60
+    case 2 => (x: Long) => x / 1000 / 60 / 60
+    case 3 | 5 => (x: Long) => x / 1000 / 60 / 60 / 24
+    case 4 => (x: Long) => x / 1000 / 60 / 60 / 24 / 30
+    case 6 => (x: Long) => x / 1000 / 60 / 60 / 24 / 365
+  }
+
+  private def createCal(fields: List[FieldValue]) = {
+      Scalendar(second = fields(0).value,
+                minute = fields(1).value,
+                hour = fields(2).value,
+                day = fields(3).value,
+                month = fields(4).value,
+                year = fields(6).value)
+  }
+
+  def next = {
+    val now = Scalendar.now
+
+    // Smallest to largest
+    val fields = List(pullDateValue(second, now, _.second.value, _.seconds),
+                      pullDateValue(minute, now, _.minute.value, _.minutes),
+                      pullDateValue(hour, now, _.hour.value, _.hours),
+                      pullDateValue(dmonth, now, _.day.value, _.days),
+                      pullDateValue(month, now, _.month.value, _.months),
+                      pullDateValue(dweek, now, (_.day.inWeek - 1), _.days),
+                      pullDateValue(year, now, _.year.value, _.years))
+
+    // First attempt
+    val attempt = createCal(fields) 
+    val difference = (now to attempt).delta.milliseconds
+  
+    // A zero or negative difference means we need to find the smallest potential
+    // which will make the difference positive, and flatten the the potentials smaller
+    // than that one
+    val indexed = fields.zipWithIndex
+
+    val incrementer = if(difference <= 0) 1 else 0
+
+    val next = indexed.filter(_._1.isInstanceOf[Potential]).find { izd =>
+      val (potential, ix) = izd
+      if (conversionPlan(ix) (abs(difference)) < 1) true else false 
+    } match {
+      case Some((_, ix)) => createCal(indexed.map { thing =>
+          val (p, i) = thing
+          if(i < ix) if(i == 3) Actual(1) else p.get 
+          else if(i == ix) Actual(p.value + incrementer) 
+          else {
+            println(i)
+            Actual(p.value) 
+          }
+      })
+      case None => attempt
+    }
+
+    // If it's negative now, then there's nothing we can do about it
+    (now to next).delta.milliseconds
+  }
 }
 
 class Cronish (syntax: String) extends RegexParsers {
@@ -154,7 +274,7 @@ class Cronish (syntax: String) extends RegexParsers {
                             | dayOfWeek 
                             | dayIncrement)
 
-  def dayOfMonthConnector = "on the" ~> (genlists("day", dayOfMonth) <~ "days"
+  def dayOfMonthConnector = "on the" ~> (genlists("day", dayOfMonth) <~ "day"
                                       | genreps("day", dayOfMonth) <~ "days"
                                       | dayOfMonth <~ "day") 
 
@@ -227,4 +347,3 @@ class Cronish (syntax: String) extends RegexParsers {
     }
   }
 }
-
