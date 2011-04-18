@@ -1,6 +1,8 @@
 package com.philipcali.cron.dsl
 package test
 
+import com.github.philcali.scalendar._
+
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
 
@@ -50,5 +52,39 @@ class CronTest extends FlatSpec with ShouldMatchers {
     "every last day in every month at every 4 hours".crons should be === "* */4 L * *"
     "every month on the last day at every 4 hours".crons should be === "* */4 L * *"
     "every Friday on the last day in every month at midnight".crons should be === "0 0 L * 5"
+  }
+
+  "Predefined crons" should "be correct" in {
+    Hourly.toString should be === "0 * * * *"
+    Daily.toString should be === "0 0 * * *"
+    Weekly.toString should be === "0 0 * * 0"
+    Monthly.toString should be === "0 0 1 * *"
+    Yearly.toString should be === "0 0 1 1 *"
+  }
+
+  "A cron" should "be able to determine its next run" in {
+    val tests = List[(String, Scalendar => Scalendar)](
+      "Every day at midnight" -> { now => Scalendar.beginDay(now) + (1 day) },
+      "Every 1st day in every month" -> { now => 
+        Scalendar.beginDay(now).day(1) + (1 month)
+      },
+      "Every month on Wednesday at midnight" -> { now =>
+        // the weekend means, the next run is on a Monday 
+        now.day.inWeek match {
+          case n if n >= 4 => (Scalendar.beginWeek(now) + (1 week)).inWeek(Day.Wednesday) 
+          case _ => Scalendar.beginDay(now).inWeek(Day.Wednesday)
+        } 
+      }
+    )
+
+    tests.foreach { test => val (crons, expected) = test
+      val cron = crons.cron
+
+      // Cron doesn't work with millisecond, so neither will we
+      val now = Scalendar.now.millisecond(0)
+
+      val result = Scalendar(now.time + cron.next)
+      result should be === expected(now)
+    }
   }
 }
