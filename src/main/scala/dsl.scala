@@ -18,8 +18,8 @@ object FieldList {
   def unapply(field: String) = {
     if(!field.contains("-")) None
     else {
-      val fs = field.split("-")
-      Some((fs(0).toInt, fs(1).toInt))
+      val Array(start, end) = field.split("-").map(_.toInt)
+      Some(start to end)
     }
   }
 }
@@ -33,20 +33,6 @@ object FieldReps {
   }
 }
 
-trait FieldValue {
-  val value: Int
-  def get: FieldValue 
-}
-
-case class Actual(value: Int) extends FieldValue {
-  def get = Actual(value)
-}
-
-case class Potential(value: Int) extends FieldValue {
-  // Flatten
-  def get = Actual(0)
-}
-
 case class Cron (second: String, 
                  minute: String, 
                  hour: String, 
@@ -54,19 +40,34 @@ case class Cron (second: String,
                  month: String, 
                  dweek: String,
                  year: String) {
-  override def toString = List(minute, hour, dmonth, month, dweek) mkString (" ")
 
-  private def pullDateValue(field: String, now: Scalendar, 
-                            valued: Scalendar => Int, modifier: Int => conversions.Evaluated) = {
+  // Actuals and Potentials are field values
+  trait FieldValue {
+    val value: Int
+    def get: Int
+  }
+  case class Actual(value: Int) extends FieldValue {
+    def get = value
+  }
+  case class Potential(value: Int, cycle: Seq[Int]) extends FieldValue {
+    def get = cycle.head
+  }
+
+  override def toString = 
+    List(minute, hour, dmonth, month, dweek) mkString (" ")
+
+  private def pullDateValue(field: String, now: Scalendar,
+                            everything: Seq[Int], 
+                            valued: Scalendar => Int, 
+                            modifier: Int => conversions.Evaluated) = {
     field match {
-      case "*" => Potential(valued(now)) 
+      case "*" => Potential(valued(now), everything)
+      case "L" => Actual(everything.last) 
       case FieldModifier(mod) => Actual(valued(now + modifier(mod)))
-      case FieldList(start, end) => 
-        if(start > valued(now)) Actual(start) else Actual(end)
-      case FieldReps(fields) => 
+      case FieldList(fields) => 
         fields.find(_ >= valued(now)) match {
-          case Some(f) => Actual(f)
-          case None => Potential(valued(now))
+          case Some(f) => Potential(f, fields)
+          case None => Potential(fields.head, fields)
         }
       case _ => Actual(field.toInt)
     }
@@ -90,16 +91,29 @@ case class Cron (second: String,
                 year = fields(5).value)
   }
 
+  private def everyday(now: Scalendar) = {
+    val first = now.day(1)
+    val last = (first + 1.month) - 1.day
+    first.day.value to last.day.value
+  }
+
+  private def everyyear(now: Scalendar) = {
+    // Let's assume for a moment, that ten years will be sufficient
+    now.year.value to (now.year.value + 30)
+  }
+
   def next = nextFrom(Scalendar.now)
 
   def nextFrom(now: Scalendar) = {
     // Smallest to largest
-    val fields = List(pullDateValue(second, now, _.second.value, _.seconds),
-                      pullDateValue(minute, now, _.minute.value, _.minutes),
-                      pullDateValue(hour, now, _.hour.value, _.hours),
-                      pullDateValue(dmonth, now, _.day.value, _.days),
-                      pullDateValue(month, now, _.month.value, _.months),
-                      pullDateValue(year, now, _.year.value, _.years))
+    val fields = List(
+      pullDateValue(second, now, (0 to 59), _.second.value, _.seconds),
+      pullDateValue(minute, now, (0 to 59), _.minute.value, _.minutes),
+      pullDateValue(hour, now, (0 to 23), _.hour.value, _.hours),
+      pullDateValue(dmonth, now, everyday(now), _.day.value, _.days),
+      pullDateValue(month, now, (1 to 12), _.month.value, _.months),
+      pullDateValue(year, now, everyyear(now), _.year.value, _.years)
+    )
 
     // First attempt
     val attempt = createCal(fields) 

@@ -27,7 +27,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     evaluating { "Every last month".cron } should produce [Exception]
   }
 
-  "Cron syntax" should "support repition" in {
+  it should "support repitition" in {
     "every day in April, June, and August at midnight".crons should be === "0 0 * 4,6,8 *"
     "every month at midnight and noon on Sunday".crons should be === "0 0,12 * * 0"
     "every 3 hours on Monday, Wednesday, and Friday".crons should be === "* */3 * * 1,3,5"
@@ -102,10 +102,9 @@ class CronTest extends FlatSpec with ShouldMatchers {
       }
     )
 
-    tests.foreach { test => val (crons, expected) = test
+    for (test <- tests; val (crons, expected) = test) {
       val cron = crons.cron
 
-      // Cron doesn't work with millisecond, so neither will we
       val now = Scalendar.now
 
       val result = Scalendar(now.time + cron.nextFrom(now))
