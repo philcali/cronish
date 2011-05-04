@@ -76,9 +76,9 @@ case class Cron (second: String,
     case 0 => (x: Long) => x / 1000
     case 1 => (x: Long) => x / 1000 / 60
     case 2 => (x: Long) => x / 1000 / 60 / 60
-    case 3 | 5 => (x: Long) => x / 1000 / 60 / 60 / 24
+    case 3 => (x: Long) => x / 1000 / 60 / 60 / 24
     case 4 => (x: Long) => x / 1000 / 60 / 60 / 24 / 30
-    case 6 => (x: Long) => x / 1000 / 60 / 60 / 24 / 365
+    case 5 => (x: Long) => x / 1000 / 60 / 60 / 24 / 365
   }
 
   private def createCal(fields: List[FieldValue]) = {
@@ -87,19 +87,18 @@ case class Cron (second: String,
                 hour = fields(2).value,
                 day = fields(3).value,
                 month = fields(4).value,
-                year = fields(6).value)
+                year = fields(5).value)
   }
 
-  def next = {
-    val now = Scalendar.now
+  def next = nextFrom(Scalendar.now)
 
+  def nextFrom(now: Scalendar) = {
     // Smallest to largest
     val fields = List(pullDateValue(second, now, _.second.value, _.seconds),
                       pullDateValue(minute, now, _.minute.value, _.minutes),
                       pullDateValue(hour, now, _.hour.value, _.hours),
                       pullDateValue(dmonth, now, _.day.value, _.days),
                       pullDateValue(month, now, _.month.value, _.months),
-                      pullDateValue(dweek, now, (_.day.inWeek - 1), _.days),
                       pullDateValue(year, now, _.year.value, _.years))
 
     // First attempt
@@ -122,7 +121,6 @@ case class Cron (second: String,
           if(i < ix) if(i == 3) Actual(1) else p.get 
           else if(i == ix) Actual(p.value + incrementer) 
           else {
-            println(i)
             Actual(p.value) 
           }
       })

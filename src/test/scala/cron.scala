@@ -62,6 +62,31 @@ class CronTest extends FlatSpec with ShouldMatchers {
     Yearly.toString should be === "0 0 1 1 *"
   }
 
+  /**
+      Terms:
+      1. `Potentials`: what the given date *could* be. 
+        In a repition or list, the data appears more cyclic.
+        In an astericks, it's simply the current time, or the next
+        possible one in a cycle.
+      2. `Actuals`: what the given date *is*.
+        Numeric values
+
+      It is my belief that `Actuals` are less common than `Potentials`.
+      The very cron definition is actually setting *occurrances* in the
+      future.
+      
+      The algorithm:
+      1. With the time given, convert cron string into a list of potentials or
+        actuals. Potentials are cyclic, meaning the next possible value for a field,
+        may the first possible value plus the next value of it's parent field.
+      2. Day of weeks are handled completely different. Having delved into this,
+        I believe that the reason the day of week field is last in the cron field,
+        is because it's accountted for separately. For example:
+        "Every Friday on the last day in every month at midnight".crons equals
+        0 0 L * 5: The last day of the month should be handled first, before finding
+        the Friday. It's not very likely that the last of every month will *be*
+        a Friday.
+  */
   "A cron" should "be able to determine its next run" in {
     val tests = List[(String, Scalendar => Scalendar)](
       "Every day at midnight" -> { now => Scalendar.beginDay(now) + (1 day) },
@@ -81,9 +106,9 @@ class CronTest extends FlatSpec with ShouldMatchers {
       val cron = crons.cron
 
       // Cron doesn't work with millisecond, so neither will we
-      val now = Scalendar.now.millisecond(0)
+      val now = Scalendar.now
 
-      val result = Scalendar(now.time + cron.next)
+      val result = Scalendar(now.time + cron.nextFrom(now))
       result should be === expected(now)
     }
   }
