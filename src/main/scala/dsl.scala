@@ -5,48 +5,6 @@ import scala.util.parsing.combinator._
 import com.github.philcali.scalendar._
 import math.abs
 
-object FieldModifier {
-  def unapply(field: String) = {
-    if(!field.contains("/")) None
-    else {
-      Some(field.split("/")(1).toInt)
-    }
-  }
-}
-
-object FieldList {
-  def unapply(field: String) = {
-    if(!field.contains("-")) None
-    else {
-      val fs = field.split("-")
-      Some((fs(0).toInt, fs(1).toInt))
-    }
-  }
-}
-
-object FieldReps {
-  def unapply(field: String) = {
-    if(!field.contains(",")) None
-    else {
-      Some(field.split(",").map(_.toInt))
-    }
-  }
-}
-
-trait FieldValue {
-  val value: Int
-  def get: FieldValue 
-}
-
-case class Actual(value: Int) extends FieldValue {
-  def get = Actual(value)
-}
-
-case class Potential(value: Int) extends FieldValue {
-  // Flatten
-  def get = Actual(0)
-}
-
 case class Cron (second: String, 
                  minute: String, 
                  hour: String, 
@@ -54,80 +12,170 @@ case class Cron (second: String,
                  month: String, 
                  dweek: String,
                  year: String) {
-  override def toString = List(minute, hour, dmonth, month, dweek) mkString (" ")
 
-  private def pullDateValue(field: String, now: Scalendar, 
-                            valued: Scalendar => Int, modifier: Int => conversions.Evaluated) = {
+  // Helpful extractors for understanding Cron
+  object FieldModifier {
+    def unapply(field: String) = {
+      if(!field.contains("/")) None
+      else {
+        Some(field.split("/")(1).toInt)
+      }
+    }
+  }
+
+  object FieldList {
+    def unapply(field: String) = {
+      if(field.contains(",")) {
+        Some(field.split(",").map(_.toInt).toList)
+      } else if(field.contains("-")) {
+        val Array(start, end) = field.split("-").map(_.toInt)
+        Some((start to end).toList)
+      } else None
+    }
+  }
+
+
+  // Actuals and Potentials are field values
+  trait FieldValue {
+    val value: Int
+    def field: String
+    def get: FieldValue
+    def next: FieldValue
+  }
+  case class Actual(value: Int) extends FieldValue {
+    def field = value.toString
+    def get = Actual(value)
+    def next = get
+  }
+  case class Potential(value: Int, original: String, cycle: Seq[Int]) extends FieldValue {
+    def field = original
+    def get = Actual(cycle.head)
+    def next = {
+      if(value == cycle.last) get else {
+        val ci = cycle.indexOf(value)
+        Actual(cycle(ci + 1))
+      }
+    }
+  }
+
+  override def toString = 
+    List(minute, hour, dmonth, month, dweek) mkString (" ")
+
+  private def pullDateValue(field: String, now: Scalendar,
+                            everything: Seq[Int], 
+                            valued: Scalendar => Int, 
+                            modifier: Int => conversions.Evaluated) = {
     field match {
-      case "*" => Potential(valued(now)) 
+      case "*" => Potential(valued(now), field, everything)
+      case "L" => Potential(everything.last, field, List(everything.last)) 
       case FieldModifier(mod) => Actual(valued(now + modifier(mod)))
-      case FieldList(start, end) => 
-        if(start > valued(now)) Actual(start) else Actual(end)
-      case FieldReps(fields) => 
+      case FieldList(fields) => 
         fields.find(_ >= valued(now)) match {
-          case Some(f) => Actual(f)
-          case None => Potential(valued(now))
+          case Some(f) => Potential(f, field, fields)
+          case None => Potential(fields.head, field, fields)
         }
       case _ => Actual(field.toInt)
     }
   }
 
-  private def conversionPlan(ix: Int) = ix match {
-    case 0 => (x: Long) => x / 1000
-    case 1 => (x: Long) => x / 1000 / 60
-    case 2 => (x: Long) => x / 1000 / 60 / 60
-    case 3 | 5 => (x: Long) => x / 1000 / 60 / 60 / 24
-    case 4 => (x: Long) => x / 1000 / 60 / 60 / 24 / 30
-    case 6 => (x: Long) => x / 1000 / 60 / 60 / 24 / 365
+  private def createCal(fields: Seq[FieldValue]) = {
+    Scalendar(second = fields(0).value,
+              minute = fields(1).value,
+              hour = fields(2).value,
+              day = fields(3).value,
+              month = fields(4).value,
+              year = fields(5).value)  
   }
 
-  private def createCal(fields: List[FieldValue]) = {
-      Scalendar(second = fields(0).value,
-                minute = fields(1).value,
-                hour = fields(2).value,
-                day = fields(3).value,
-                month = fields(4).value,
-                year = fields(6).value)
+  private def everyday(now: Scalendar) = {
+    val first = now.day(1)
+    val last = (first + 1.month) - 1.day
+    first.day.value to last.day.value
   }
 
-  def next = {
+  private def everyyear(now: Scalendar) = {
+    now.year.value to (now.year.value + 1)
+  }
+
+  def next = nextFrom(Scalendar.now)
+
+  def nextTime = {
     val now = Scalendar.now
+    Scalendar(now.time + nextFrom(now))
+  }
 
-    // Smallest to largest
-    val fields = List(pullDateValue(second, now, _.second.value, _.seconds),
-                      pullDateValue(minute, now, _.minute.value, _.minutes),
-                      pullDateValue(hour, now, _.hour.value, _.hours),
-                      pullDateValue(dmonth, now, _.day.value, _.days),
-                      pullDateValue(month, now, _.month.value, _.months),
-                      pullDateValue(dweek, now, (_.day.inWeek - 1), _.days),
-                      pullDateValue(year, now, _.year.value, _.years))
+  def nextFrom(now: Scalendar) = {
 
-    // First attempt
-    val attempt = createCal(fields) 
-    val difference = (now to attempt).delta.milliseconds
-  
-    // A zero or negative difference means we need to find the smallest potential
-    // which will make the difference positive, and flatten the the potentials smaller
-    // than that one
-    val indexed = fields.zipWithIndex
+    def evaluate(sec: String, min: String, h: String, 
+                 dmon: String, mon: String, y: String): Scalendar = {
 
-    val incrementer = if(difference <= 0) 1 else 0
+      // Get a days test
+      val taway = pullDateValue(mon, now, (1 to 12), _.month.value, _.months)
 
-    val next = indexed.filter(_._1.isInstanceOf[Potential]).find { izd =>
-      val (potential, ix) = izd
-      if (conversionPlan(ix) (abs(difference)) < 1) true else false 
-    } match {
-      case Some((_, ix)) => createCal(indexed.map { thing =>
-          val (p, i) = thing
-          if(i < ix) if(i == 3) Actual(1) else p.get 
-          else if(i == ix) Actual(p.value + incrementer) 
-          else {
-            println(i)
-            Actual(p.value) 
+      // Smallest to largest
+      val fields = List(
+         pullDateValue(sec, now, (0 to 59), _.second.value, _.seconds),
+         pullDateValue(min, now, (0 to 59), _.minute.value, _.minutes),
+         pullDateValue(h, now, (0 to 23), _.hour.value, _.hours),
+         pullDateValue(dmon, now, everyday(now.month(taway.value)), _.day.value, _.days),
+         taway,
+         pullDateValue(y, now, everyyear(now), _.year.value, _.years)
+      )
+
+      // First attempt
+      val attempt = createCal(fields) 
+      val difference = (now to attempt).delta.milliseconds
+
+      val completed = fields.foldLeft(true)(_ && _.isInstanceOf[Actual])
+
+      if (completed) {
+        def applyDay(dvalue: Int) = {
+          val test = attempt.inWeek(dvalue + 1)
+          (attempt to test).delta.milliseconds >= 0
+        }
+        pullDateValue(dweek, attempt, (0 to 6), _.inWeek - 1, _.weeks) match {
+          case Actual(value) if !applyDay(value) => attempt.inWeek(value + 1) + 1.week
+          case Actual(value) => 
+            val test = attempt.inWeek(value + 1) - (1 week)
+            if((now to test).delta.milliseconds < 0) attempt.inWeek(value + 1)
+            else test
+          case Potential(_, _, cycle) => cycle.find(applyDay) match {
+            case Some(day) => attempt.inWeek(day + 1)
+            case None => attempt.inWeek(cycle.head) + 1.week
           }
-      })
-      case None => attempt
+        }
+      } else {
+        val indexed = fields.zipWithIndex
+        val interest = indexed.filter(_._1.isInstanceOf[Potential]).find { 
+          case (field, ix) => 
+            val test = createCal(indexed.map {
+              case (f, i) if i < ix => f.get
+              case (f, i) if i == ix => f.next
+              case (f, _) => Actual(f.value)
+            })
+            (attempt to test).delta.milliseconds >= 0
+        }
+        val changed = interest match {
+          case Some(id) =>
+            indexed.map {
+              case (f, ix) if ix == id._2 => f.next.field
+              case (f, ix) if ix > id._2 => Actual(f.value).field
+              case (f, _) => f.field
+            }
+          case None => indexed.map( f => f._1.get.field)
+        }
+        evaluate(changed(0), changed(1), changed(2), changed(3), changed(4), changed(5))
+      }
     }
+
+    val next = evaluate(
+      second,
+      minute,
+      hour,
+      dmonth,
+      month,
+      year
+    )
 
     // If it's negative now, then there's nothing we can do about it
     (now to next).delta.milliseconds

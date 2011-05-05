@@ -27,7 +27,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     evaluating { "Every last month".cron } should produce [Exception]
   }
 
-  "Cron syntax" should "support repition" in {
+  it should "support repitition" in {
     "every day in April, June, and August at midnight".crons should be === "0 0 * 4,6,8 *"
     "every month at midnight and noon on Sunday".crons should be === "0 0,12 * * 0"
     "every 3 hours on Monday, Wednesday, and Friday".crons should be === "* */3 * * 1,3,5"
@@ -62,28 +62,68 @@ class CronTest extends FlatSpec with ShouldMatchers {
     Yearly.toString should be === "0 0 1 1 *"
   }
 
+  /**
+      Terms:
+      1. `Potentials`: what the given date *could* be. 
+        In a repition or list, the data appears more cyclic.
+        In an astericks, it's simply the current time, or the next
+        possible one in a cycle.
+      2. `Actuals`: what the given date *is*.
+        Numeric values
+
+      It is my belief that `Actuals` are less common than `Potentials`.
+      The very cron definition is actually setting *occurrances* in the
+      future.
+      
+      The algorithm:
+      1. With the time given, convert cron string into a list of potentials or
+        actuals. Potentials are cyclic, meaning the next possible value for a field,
+        may the first possible value plus the next value of it's parent field.
+      2. Day of weeks are handled completely different. Having delved into this,
+        I believe that the reason the day of week field is last in the cron field,
+        is because it's accountted for separately. For example:
+        "Every Friday on the last day in every month at midnight".crons equals
+        0 0 L * 5: The last day of the month should be handled first, before finding
+        the Friday. It's not very likely that the last of every month will *be*
+        a Friday.
+  */
   "A cron" should "be able to determine its next run" in {
     val tests = List[(String, Scalendar => Scalendar)](
       "Every day at midnight" -> { now => Scalendar.beginDay(now) + (1 day) },
-      "Every 1st day in every month" -> { now => 
+      "Every 1st day in every month at midnight" -> { now => 
         Scalendar.beginDay(now).day(1) + (1 month)
       },
+      "Every last day in every month at midnight" -> { now =>
+        Scalendar.beginDay(now).day(1) + (1 month) - (1 day)
+      },
       "Every month on Wednesday at midnight" -> { now =>
-        // the weekend means, the next run is on a Monday 
         now.day.inWeek match {
           case n if n >= 4 => (Scalendar.beginWeek(now) + (1 week)).inWeek(Day.Wednesday) 
           case _ => Scalendar.beginDay(now).inWeek(Day.Wednesday)
         } 
+      },
+      "Every month on Sunday at midnight" -> { now =>
+        Scalendar.beginWeek(now) + (1 week)
+      },
+      "Every month at 3:30 on the weekday" -> { now =>
+        val working = if(now.inWeek == 6 || now.inWeek == 7) 
+                        Scalendar.beginWeek(now) + (1 week) + (1 day)
+                      else Scalendar.beginDay(now) + (1 day)
+        working.hour(3).minute(30) 
+      },
+      "Every Friday on the last day in every month at midnight" -> { now =>
+        val working = Scalendar.beginDay(now).day(1) + (1 month) - (1 day)
+        if(working.inWeek >= 6) working.inWeek(6)
+        else working.inWeek(6) - 1.week
       }
     )
 
-    tests.foreach { test => val (crons, expected) = test
+    for (test <- tests; val (crons, expected) = test) {
       val cron = crons.cron
 
-      // Cron doesn't work with millisecond, so neither will we
-      val now = Scalendar.now.millisecond(0)
+      val now = Scalendar.now
 
-      val result = Scalendar(now.time + cron.next)
+      val result = Scalendar(now.time + cron.nextFrom(now))
       result should be === expected(now)
     }
   }
