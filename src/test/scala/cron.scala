@@ -90,15 +90,31 @@ class CronTest extends FlatSpec with ShouldMatchers {
   "A cron" should "be able to determine its next run" in {
     val tests = List[(String, Scalendar => Scalendar)](
       "Every day at midnight" -> { now => Scalendar.beginDay(now) + (1 day) },
-      "Every 1st day in every month" -> { now => 
+      "Every 1st day in every month at midnight" -> { now => 
         Scalendar.beginDay(now).day(1) + (1 month)
       },
+      "Every last day in every month at midnight" -> { now =>
+        Scalendar.beginDay(now).day(1) + (1 month) - (1 day)
+      },
       "Every month on Wednesday at midnight" -> { now =>
-        // the weekend means, the next run is on a Monday 
         now.day.inWeek match {
           case n if n >= 4 => (Scalendar.beginWeek(now) + (1 week)).inWeek(Day.Wednesday) 
           case _ => Scalendar.beginDay(now).inWeek(Day.Wednesday)
         } 
+      },
+      "Every month on Sunday at midnight" -> { now =>
+        Scalendar.beginWeek(now) + (1 week)
+      },
+      "Every month at 3:30 on the weekday" -> { now =>
+        val working = if(now.inWeek == 6 || now.inWeek == 7) 
+                        Scalendar.beginWeek(now) + (1 week) + (1 day)
+                      else Scalendar.beginDay(now) + (1 day)
+        working.hour(3).minute(30) 
+      },
+      "Every Friday on the last day in every month at midnight" -> { now =>
+        val working = Scalendar.beginDay(now).day(1) + (1 month) - (1 day)
+        if(working.inWeek >= 6) working.inWeek(6)
+        else working.inWeek(6) - 1.week
       }
     )
 
