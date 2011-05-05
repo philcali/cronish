@@ -27,4 +27,9 @@ Using cronish, we can almost write this verbatim...
 
     Cron("0", "*/3", "1,9,22", "11-26", "1-6", "*", "2003")
 
+## Determining the Next Run
 
+A `Cron` object created from an expression, or created manually, can determine its next run from now, or a 
+specific time in the future.
+
+[cron]: http://en.wikipedia.org/wiki/Cron#Examples_2
