@@ -336,7 +336,11 @@ class Cronish (syntax: String) extends RegexParsers {
                                       | yearValue 
                                       | fieldIncrementers("year"))
 
-  def connector = timeConnector | dayConnector | yearConnector | monthConnector | dayOfMonthConnector
+  def connector = timeConnector 
+                | dayConnector 
+                | yearConnector 
+                | monthConnector 
+                | dayOfMonthConnector
 
   def connectors = rep(connector) ^^ {
     case values => values.foldLeft(Map[String,String]())(_ ++ _)
@@ -368,10 +372,7 @@ class Cronish (syntax: String) extends RegexParsers {
   }
 
   // Public conversions
-  def cron = cronOption match {
-    case Left(crond) => crond
-    case Right(msg) => error(msg)
-  }
+  def cron = cronOption fold (error(_), a => a) 
 
   def crons = cron.toString
 
@@ -379,7 +380,7 @@ class Cronish (syntax: String) extends RegexParsers {
   def cronOption = {
     parseAll(incrementers, syntax) match {
       case Success(parsed, _) =>
-        Left(Cron(
+        Right(Cron(
           parsed.getOrElse("second", "0"),
           parsed.getOrElse("minute", "*"),
           parsed.getOrElse("hour", "*"),
@@ -389,9 +390,9 @@ class Cronish (syntax: String) extends RegexParsers {
           parsed.getOrElse("year", "*")
         ))
       case Failure(msg, _) =>
-        Right(msg) 
+        Left(msg) 
       case Error(msg, _) =>
-        Right(msg)
+        Left(msg)
     }
   }
 }
