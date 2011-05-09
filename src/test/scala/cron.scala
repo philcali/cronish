@@ -1,7 +1,8 @@
-package com.philipcali.cron.dsl
+package com.philipcali.cron
 package test
 
 import com.github.philcali.scalendar._
+import dsl._
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
@@ -62,31 +63,41 @@ class CronTest extends FlatSpec with ShouldMatchers {
     Yearly.toString should be === "0 0 1 1 *"
   }
 
-  /**
-      Terms:
-      1. `Potentials`: what the given date *could* be. 
-        In a repition or list, the data appears more cyclic.
-        In an astericks, it's simply the current time, or the next
-        possible one in a cycle.
-      2. `Actuals`: what the given date *is*.
-        Numeric values
+  "A cron task" should "be able to be built fluently" in {
+    val test = task {
+      Some("Building something leet")
+    }
 
-      It is my belief that `Actuals` are less common than `Potentials`.
-      The very cron definition is actually setting *occurrances* in the
-      future.
-      
-      The algorithm:
-      1. With the time given, convert cron string into a list of potentials or
-        actuals. Potentials are cyclic, meaning the next possible value for a field,
-        may the first possible value plus the next value of it's parent field.
-      2. Day of weeks are handled completely different. Having delved into this,
-        I believe that the reason the day of week field is last in the cron field,
-        is because it's accountted for separately. For example:
-        "Every Friday on the last day in every month at midnight".crons equals
-        0 0 L * 5: The last day of the month should be handled first, before finding
-        the Friday. It's not very likely that the last of every month will *be*
-        a Friday.
-  */
+    test.isInstanceOf[jobs.CronTask] should be === true
+    
+    val testjob = test executes "every second"
+
+    testjob.isInstanceOf[jobs.Scheduled] should be === true
+  }
+
+  it should "run at said increments" in {
+    // Counter for our program
+    var runs = 0
+
+    val example = task {
+      runs += 1
+      if(runs == 1) Some("Done") else None
+    }
+    
+    example executes "every second"
+
+    // We'll sleep for 3 seconds
+    Thread.sleep(1 * 1000)
+
+    runs should be === 1
+  }
+
+  it should "be able to be stopped at any time" in {
+    var counter = 0
+    task { counter += 1; None } executes "every second" stop()
+    counter should be === 0
+  }
+
   "A cron" should "be able to determine its next run" in {
     val tests = List[(String, Scalendar => Scalendar)](
       "Every day at midnight" -> { now => Scalendar.beginDay(now) + (1 day) },
