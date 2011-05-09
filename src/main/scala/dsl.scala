@@ -336,11 +336,11 @@ class Cronish (syntax: String) extends RegexParsers {
                                       | yearValue 
                                       | fieldIncrementers("year"))
 
-  def connector = timeConnector 
-                | dayConnector 
-                | yearConnector 
-                | monthConnector 
-                | dayOfMonthConnector
+  def connector = (timeConnector 
+                 | dayConnector 
+                 | yearConnector 
+                 | monthConnector 
+                 | dayOfMonthConnector)
 
   def connectors = rep(connector) ^^ {
     case values => values.foldLeft(Map[String,String]())(_ ++ _)
