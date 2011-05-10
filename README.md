@@ -32,4 +32,16 @@ Using cronish, we can almost write this verbatim...
 A `Cron` object created from an expression, or created manually, can determine its next run from now, or a 
 specific time in the future.
 
+## Creating a Cron Job
+
+Cron jobs are created via dsl language as well. The syntax borrows heavily from
+sbt task creation.
+
+    val payroll = task {
+      println("You have just been paid... Finally!")
+    }
+
+    // Yes... that's how you run it 
+    payroll executes "every Friday on the last day in every month"
+
 [cron]: http://en.wikipedia.org/wiki/Cron#Examples_2
