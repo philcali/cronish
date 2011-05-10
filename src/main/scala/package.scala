@@ -10,7 +10,7 @@ package object dsl {
   val Monthly = "Every 1st day in every month at midnight".cron 
   val Yearly = "Every year on the 1st day in January at midnight".cron
 
-  def task(action: => Option[String]) = new jobs.CronTask {
+  def task[A](action: => A) = new jobs.CronTask {
     def run() = action
   }
 }

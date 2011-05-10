@@ -65,7 +65,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
 
   "A cron task" should "be able to be built fluently" in {
     val test = task {
-      Some("Building something leet")
+      println("Building something leet")
     }
 
     test.isInstanceOf[jobs.CronTask] should be === true
@@ -73,6 +73,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     val testjob = test executes "every second"
 
     testjob.isInstanceOf[jobs.Scheduled] should be === true
+    testjob.stop()
   }
 
   it should "run at said increments" in {
@@ -81,20 +82,20 @@ class CronTest extends FlatSpec with ShouldMatchers {
 
     val example = task {
       runs += 1
-      if(runs == 1) Some("Done") else None
     }
     
-    example executes "every second"
+    val exampleJob = example executes "every second"
 
     // We'll sleep for 3 seconds
     Thread.sleep(1 * 1000)
 
     runs should be === 1
+    exampleJob.stop()
   }
 
   it should "be able to be stopped at any time" in {
     var counter = 0
-    task { counter += 1; None } executes "every second" stop()
+    task { counter += 1 } executes "every second" stop()
     counter should be === 0
   }
 
