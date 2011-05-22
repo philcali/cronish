@@ -1,6 +1,7 @@
-package com.philipcali.cron
+package com.github.philcali.cronish
 
 import com.github.philcali.scalendar._
+import implicits._
 
 case class Cron (second: String, 
                  minute: String, 
@@ -76,12 +77,12 @@ case class Cron (second: String,
   }
 
   private def createCal(fields: Seq[FieldValue]) = {
-    Scalendar(second = fields(0).value,
-              minute = fields(1).value,
-              hour = fields(2).value,
-              day = fields(3).value,
-              month = fields(4).value,
-              year = fields(5).value)  
+    Scalendar(fields(5).value,
+              fields(4).value,
+              fields(3).value,
+              fields(2).value,
+              fields(1).value,
+              fields(0).value, 0)
   }
 
   private def everyday(now: Scalendar) = {

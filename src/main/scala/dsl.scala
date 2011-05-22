@@ -1,8 +1,11 @@
-package com.philipcali.cron
+package com.github.philcali.cronish 
 package dsl
 
 import scala.util.parsing.combinator._
+
+// For Calendar
 import com.github.philcali.scalendar._
+import implicits._
 
 class Cronish (syntax: String) extends RegexParsers {
   // Helper functions
@@ -194,7 +197,9 @@ class Cronish (syntax: String) extends RegexParsers {
   }
 
   // Public conversions
-  def cron = cronOption fold (error(_), a => a) 
+  def cron = cronOption fold ({ msg =>
+    throw new IllegalArgumentException(msg)
+  }, a => a) 
 
   def crons = cron.toString
 

@@ -1,8 +1,11 @@
-package com.philipcali.cron
+package com.github.philcali.cronish 
 package test
 
-import com.github.philcali.scalendar._
 import dsl._
+
+// For Calendar
+import com.github.philcali.scalendar._
+import implicits._
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
