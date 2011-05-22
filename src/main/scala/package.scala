@@ -1,4 +1,4 @@
-package com.philipcali.cron
+package com.github.philcali.cronish 
 
 package object dsl {
   implicit def string2cron(syntax: String) = new Cronish(syntax)
@@ -13,4 +13,6 @@ package object dsl {
   def task[A](action: => A) = new jobs.CronTask {
     def run() = action
   }
+
+  def job[A](action: => A) = task(action)
 }

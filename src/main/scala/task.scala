@@ -1,4 +1,4 @@
-package com.philipcali.cron
+package com.github.philcali.cronish 
 package jobs
 
 import dsl.string2cron
