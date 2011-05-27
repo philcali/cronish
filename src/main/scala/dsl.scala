@@ -4,8 +4,7 @@ package dsl
 import scala.util.parsing.combinator._
 
 // For Calendar
-import com.github.philcali.scalendar._
-import implicits._
+import com.github.philcali.scalendar.Imports._
 
 class Cronish (syntax: String) extends RegexParsers {
   // Helper functions

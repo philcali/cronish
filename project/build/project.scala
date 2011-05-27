@@ -1,7 +1,7 @@
 import sbt._
 
 class Project(info: ProjectInfo) extends DefaultProject(info) {
-  val scalendar = "com.github.philcali" %% "scalendar" % "0.0.3"
+  val scalendar = "com.github.philcali" %% "scalendar" % "0.0.4"
 
   // Get the right Test, for the right job
   val scalatestDefinition = buildScalaVersion match {

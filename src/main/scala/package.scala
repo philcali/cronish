@@ -4,15 +4,13 @@ package object dsl {
   implicit def string2cron(syntax: String) = new Cronish(syntax)
 
   // Predefined Constants ... should I be using an Enumeration?
-  val Hourly = "Every hour at 0:00".cron
-  val Daily = "Every day at midnight".cron
-  val Weekly = "Every month on Sunday at midnight".cron
-  val Monthly = "Every 1st day in every month at midnight".cron 
-  val Yearly = "Every year on the 1st day in January at midnight".cron
+  val hourly = "Every hour at 0:00".cron
+  val daily = "Every day at midnight".cron
+  val weekly = "Every month on Sunday at midnight".cron
+  val monthly = "Every 1st day in every month at midnight".cron 
+  val yearly = "Every year on the 1st day in January at midnight".cron
 
-  def task[A](action: => A) = new jobs.CronTask {
-    def run() = action
-  }
+  def task[A](action: => A) = new jobs.CronTask(None, action) 
 
   def job[A](action: => A) = task(action)
 }
