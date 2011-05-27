@@ -4,8 +4,7 @@ package test
 import dsl._
 
 // For Calendar
-import com.github.philcali.scalendar._
-import implicits._
+import com.github.philcali.scalendar.Imports._
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
@@ -59,11 +58,11 @@ class CronTest extends FlatSpec with ShouldMatchers {
   }
 
   "Predefined crons" should "be correct" in {
-    Hourly.toString should be === "0 * * * *"
-    Daily.toString should be === "0 0 * * *"
-    Weekly.toString should be === "0 0 * * 0"
-    Monthly.toString should be === "0 0 1 * *"
-    Yearly.toString should be === "0 0 1 1 *"
+    hourly.toString should be === "0 * * * *"
+    daily.toString should be === "0 0 * * *"
+    weekly.toString should be === "0 0 * * 0"
+    monthly.toString should be === "0 0 1 * *"
+    yearly.toString should be === "0 0 1 1 *"
   }
 
   "A cron task" should "be able to be built fluently" in {
@@ -89,7 +88,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     
     val exampleJob = example executes "every second"
 
-    // We'll sleep for 3 seconds
+    // We'll sleep for a second
     Thread.sleep(1 * 1000)
 
     runs should be === 1
@@ -102,6 +101,61 @@ class CronTest extends FlatSpec with ShouldMatchers {
     counter should be === 0
   }
 
+  it should "be able to have a user defined description" in {
+    val nodesc = job (println("Will it happen?")) runs "every second"
+    
+    val expected = "A really cool description"
+    val other = job {
+      println("Blah blah")
+    } describedAs expected executes daily
+ 
+    nodesc.task.description should be === None
+    other.task.description should be === Some(expected)
+    
+    nodesc.stop()
+    other.stop()
+  }
+ 
+  it should "be able to perform delayed starts" in {
+    var counter = 0
+    val countTask = job { counter += 1 }
+    val delayed = countTask runs "every second" in 100.milliseconds 
+
+    counter should be === 0
+    Thread.sleep(1100)
+    delayed.stop()
+    counter should be === 1
+
+    import Scalendar.now
+    val other = countTask executes "every second" starting now
+    Thread.sleep(1000)
+    other.stop()
+    counter should be === 2
+  }
+
+  it should "be able to be reset and delayed fluently" in {
+    val one = job(println("End of the World")) runs "every second" 
+    
+    val reseted = one.reset() 
+
+    val delayed = reseted in 4.minutes
+    
+    delayed.stop()
+  }
+
+  "Cron Management" should "be completely hidden from user" in {
+    job(println("Tell like it is")) describedAs "Tell him" runs hourly
+    job(println("Tell like it is")) describedAs "later" runs daily 
+    job(println("Tell like it is")) describedAs "on" runs monthly
+    job(println("Tell like it is")) describedAs "dude" runs yearly
+
+    val active = jobs.Scheduled.active
+    val expected = "Tell him later on dude"
+    active.map(_.task.description.get).mkString(" ") should be === expected 
+    
+    active.foreach(_.stop())
+  }
+ 
   "A cron" should "be able to determine its next run" in {
     val tests = List[(String, Scalendar => Scalendar)](
       "Every day at midnight" -> { now => Scalendar.beginDay(now) + (1 day) },
@@ -127,9 +181,15 @@ class CronTest extends FlatSpec with ShouldMatchers {
         working.hour(3).minute(30) 
       },
       "Every Friday on the last day in every month at midnight" -> { now =>
-        val working = Scalendar.beginDay(now).day(1) + (1 month) - (1 day)
-        if(working.inWeek >= 6) working.inWeek(6)
-        else working.inWeek(6) - 1.week
+        def lastFriday(month: Int) = {
+          val current = now.month(month) 
+          val working = Scalendar.beginDay(current).day(1) + (1 month) - (1 day)
+          if(working.inWeek >= 6) working.inWeek(6)
+          else working.inWeek(6) - 1.week
+        }
+        val attempt = lastFriday(now.month.value)
+        if (attempt < now) lastFriday((now + 1.month).month.value) 
+        else attempt
       }
     )
 
