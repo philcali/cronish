@@ -7,9 +7,6 @@ import scala.util.parsing.combinator._
 import com.github.philcali.scalendar.Imports._
 
 class Cronish (syntax: String) extends RegexParsers {
-  // Helper functions
-  private def valueMap[A](vals: Set[A]) = vals.map(_ toString) 
-
   def monthnames = (1 to 12).map(Month(_).toString) 
 
   def daynames = (1 to 7).map(Day(_).toString)
