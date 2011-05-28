@@ -20,7 +20,8 @@ case class Cron (second: String,
     def unapply(field: String) = {
       if(!field.contains("/")) None
       else {
-        Some(field.split("/")(1).toInt)
+        val Array(value, mod) = field.split("/")
+        Some((value, mod.toInt))
       }
     }
   }
@@ -36,6 +37,22 @@ case class Cron (second: String,
     }
   }
 
+  object FieldNumber {
+    def unapply(field: String) = {
+      if (field.contains("#")) {
+        val Array(day, number) = field.split("#").map(_.toInt)
+        Some((day, number))
+      } else None
+    }
+  }
+
+  object FieldLast {
+    def unapply(field: String) = {
+      if (field.contains("L")) {
+        Some(field.split("L")(0))
+      } else None
+    }
+  }
 
   // Actuals and Potentials are field values
   trait FieldValue {
@@ -70,7 +87,7 @@ case class Cron (second: String,
     field match {
       case "*" => Potential(valued(now), field, everything)
       case "L" => Potential(everything.last, field, List(everything.last)) 
-      case FieldModifier(mod) => Actual(valued(now + modifier(mod)))
+      case FieldModifier(value, mod) => Actual(valued(now + modifier(mod)))
       case FieldList(fields) => 
         fields.find(_ >= valued(now)) match {
           case Some(f) => Potential(f, field, fields)

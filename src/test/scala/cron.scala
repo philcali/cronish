@@ -25,7 +25,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
   }
 
   "Cron syntax" should "support the 'last' keyword" in {
-    "Every month on the last day of week".crons should be === "* * * * L"
+    "Every month on the last Saturday".crons should be === "* * * * 6L"
     "Every last day".crons should be === "* * L * *"
     evaluating { "Every last month".cron } should produce [Exception]
   }
@@ -55,6 +55,18 @@ class CronTest extends FlatSpec with ShouldMatchers {
     "every last day in every month at every 4 hours".crons should be === "* */4 L * *"
     "every month on the last day at every 4 hours".crons should be === "* */4 L * *"
     "every Friday on the last day in every month at midnight".crons should be === "0 0 L * 5"
+  }
+
+  it should "support the special day of week syntax" in {
+    "every month on the last Friday at midnight".crons should be === "0 0 * * 5L"
+    "every month on the 2nd Friday at midnight".crons should be === "0 0 * * 5#2"
+    "every last Friday at midnight".crons should be === "0 0 * * 5L"
+    "every other Friday at midnight".crons should be === "0 0 * * 5/2"
+  }
+
+  it should "support the special time keywords" in {
+    "every midnight".crons should be === "every day at midnight".crons
+    "every midnight on the last Friday".crons should be === "0 0 * * 5L"
   }
 
   "Predefined crons" should "be correct" in {
