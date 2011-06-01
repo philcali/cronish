@@ -6,6 +6,7 @@ import com.github.philcali.scalendar.{
   conversions
 }
 import Imports._
+import java.util.Calendar._
 
 case class Cron (second: String, 
                  minute: String, 
@@ -20,7 +21,8 @@ case class Cron (second: String,
     def unapply(field: String) = {
       if(!field.contains("/")) None
       else {
-        Some(field.split("/")(1).toInt)
+        val Array(value, mod) = field.split("/")
+        Some((value, mod.toInt))
       }
     }
   }
@@ -36,21 +38,210 @@ case class Cron (second: String,
     }
   }
 
+  object FieldNumber {
+    def unapply(field: String) = {
+      if (field.contains("#")) {
+        val Array(day, number) = field.split("#").map(_.toInt)
+        Some((day, number))
+      } else None
+    }
+  }
+
+  object FieldLast {
+    def unapply(field: String) = {
+      if (field.contains("L")) {
+        Some(field.split("L")(0).toInt)
+      } else None
+    }
+  }
+
+  trait Fields {
+    val now: Scalendar
+    val field: String
+    val everything: Seq[Int]
+    val fieldType: Int
+
+    lazy val under = pullValue 
+
+    def isPotential = under.isInstanceOf[Potential] 
+    def isNotDefined = field == "*"
+
+    def valued(cal: Scalendar) = cal.cal.get(fieldType) 
+    def handler(cal: Scalendar, amount: Int) = cal.set(fieldType, amount) 
+    def modifier(amount: Int) = conversions.Evaluated(fieldType, amount)
+
+    def evaluate(cal: Scalendar) = handler(cal, under.value)
+    def evaluateHead(cal: Scalendar) = handler(cal, under.get.value)
+    def evaluateNext(cal: Scalendar) = handler(cal, under.next.value)
+
+    def pullValue: FieldValue
+
+    def resetWith(cal: Scalendar): Fields
+  } 
+
+  trait BaseFieldEval extends Fields {
+    def pullValue = field match {
+      case "*" => Potential(valued(now), everything)
+      case "L" => Potential(everything.last, List(everything.last)) 
+      case FieldModifier(value, mod) if value == "*" => 
+        Potential(everything.head + mod, everything)
+      case FieldModifier(value, mod) => Potential(value.toInt, everything)
+      case FieldList(fields) => 
+        fields.find(_ >= valued(now)) match {
+          case Some(f) => Potential(f, fields)
+          case None => Potential(fields.head, fields)
+        }
+      case FieldNumber(value, mod) => Potential(value, everything)
+      case FieldLast(value) => Potential(value, everything)
+      case _ => Actual(field.toInt)
+    }
+  }
+
+  case class SecondField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = SECOND
+    val everything = (0 to 59)
+    
+    def resetWith(cal: Scalendar) = SecondField(field, cal)
+  }
+
+  case class MinuteField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = MINUTE
+    val everything = (0 to 59)
+
+    def resetWith(cal: Scalendar) = MinuteField(field, cal)
+  }
+
+  case class HourField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = HOUR_OF_DAY
+    val everything = (0 to 23)
+
+    def resetWith(cal: Scalendar) = HourField(field, cal)
+  }
+
+  case class DayField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = DATE
+    val everything = {
+      val endofmonth = now.day(1) + 1.month - 1.day
+      (1 to endofmonth.day.value)
+    }
+
+    def resetWith(cal: Scalendar) = DayField(field, cal)
+  }
+
+  case class MonthField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = MONTH
+    val everything = (1 to 12)
+
+    override def valued(cal: Scalendar) = super.valued(cal) + 1
+    override def handler(cal: Scalendar, amount: Int) = 
+      super.handler(cal, amount - 1)
+
+    // Bumping the month requires us to zero roll the days 
+    override def evaluateNext(cal: Scalendar) = 
+      super.evaluateNext(cal.day(1))
+
+    def resetWith(cal: Scalendar) = MonthField(field, cal)
+  }
+
+  case class YearField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = YEAR
+    val everything = {
+      val year = now.year.value
+      (year to year + 1)
+    }
+
+    def resetWith(cal: Scalendar) = YearField(field, cal)
+  }
+
+  case class DayOfWeekField(field: String, now: Scalendar) extends BaseFieldEval {
+    val fieldType = DAY_OF_WEEK
+    val everything = (0 to 6)
+
+    def resetWith(cal: Scalendar) = DayOfWeekField(field, now)
+
+    private def findAll(cal: Scalendar, day: Int) = {
+      val begin = cal.day(1)
+      begin to (begin + 1.month) by 1.day filter(_.inWeek == day)
+    }
+    override def valued(cal: Scalendar) = super.valued(cal) - 1
+    override def handler(cal: Scalendar, amount: Int) =
+      super.handler(cal, amount + 1)
+
+    override def evaluate(cal: Scalendar) = internalEval(cal)
+    override def evaluateHead(cal: Scalendar) = internalEval(cal.day(1))
+    override def evaluateNext(cal: Scalendar) = internalEval(cal)
+
+    def internalEval(cal: Scalendar) = field match {
+      // Everything indicates that we will use the day field
+      case "*" => cal
+      // A regular last means we simply use the last day of the week
+      case "L" => cal.inWeek(Day.Saturday)
+      // Any defined list of fields means we're shooting for week increments
+      case FieldList(fields) => 
+        fields.find(f => cal.inWeek(f + 1) > cal) match {
+          case Some(f) => cal.inWeek(f + 1)
+          case None => 
+            val test = cal.inWeek(fields.head + 1) + 1.week
+            if (test.month != cal.month) findAll(cal, fields.head + 1).head.start
+            else test
+        }
+      // Modifiers are special syntaxes for day of week
+      case FieldModifier(value, mod) => 
+        val day = value.toInt + 1
+        val weeks = cal.calendarMonth.by(1 week).foldLeft(0) { (in, _) => in + 1 }
+        // Find the first instance of the day
+        val begin = cal.day(1) + 1.week
+        begin to (begin + 1.week) by 1.day find (_.inWeek == day) map { d =>
+          // Modify the found day by the modifier (in weeks)
+          (0 until weeks / mod).map(e => d.start + (mod * e).weeks)
+            .find(_ >= cal) match {
+            case Some(t) => t
+            case None => 
+              val test = cal.inWeek(day)
+              if (test > cal) test + (mod - 1).week else test + mod.week
+          }
+        } getOrElse cal
+      // Field numbers are another special syntax
+      case FieldNumber(value, mod) =>
+        val day = value + 1
+        // Count the number of times the day appears in the month
+        val occur = findAll(cal, day)
+        // There doesn't exists this day
+        if (mod > occur.size) occur.head.start
+        // There exists this day
+        else occur.zipWithIndex.find(_._2 + 1 == mod) match {
+          case Some((d, _)) => d.start
+          case None => cal 
+        }
+      // Field Last are yet another special day of week syntax
+      case FieldLast(value) =>
+        val day = value + 1
+        val begin = cal.day(1)
+        val last = begin + 1.month - 1.day
+        val attempt = last.inWeek(day)
+        if (attempt.month != last.month) attempt - 1.week
+        else attempt 
+      // A static number
+      case _ =>
+        val day = field.toInt + 1
+        val attempt = if(day <= cal.inWeek && cal <= now) cal.inWeek(day) + 1.week 
+                      else cal.inWeek(day)
+        if (attempt.month != now.month) findAll(attempt, day).head.start 
+        else attempt 
+    }
+  }
 
   // Actuals and Potentials are field values
   trait FieldValue {
     val value: Int
-    def field: String
     def get: FieldValue
     def next: FieldValue
   }
   case class Actual(value: Int) extends FieldValue {
-    def field = value.toString
     def get = Actual(value)
     def next = get
   }
-  case class Potential(value: Int, original: String, cycle: Seq[Int]) extends FieldValue {
-    def field = original
+  case class Potential(value: Int, cycle: Seq[Int]) extends FieldValue {
     def get = Actual(cycle.head)
     def next = {
       if(value == cycle.last) get else {
@@ -63,42 +254,6 @@ case class Cron (second: String,
   override def toString = 
     List(minute, hour, dmonth, month, dweek) mkString (" ")
 
-  private def pullDateValue(field: String, now: Scalendar,
-                            everything: Seq[Int], 
-                            valued: Scalendar => Int, 
-                            modifier: Int => conversions.Evaluated) = {
-    field match {
-      case "*" => Potential(valued(now), field, everything)
-      case "L" => Potential(everything.last, field, List(everything.last)) 
-      case FieldModifier(mod) => Actual(valued(now + modifier(mod)))
-      case FieldList(fields) => 
-        fields.find(_ >= valued(now)) match {
-          case Some(f) => Potential(f, field, fields)
-          case None => Potential(fields.head, field, fields)
-        }
-      case _ => Actual(field.toInt)
-    }
-  }
-
-  private def createCal(fields: Seq[FieldValue]) = {
-    Scalendar(fields(5).value,
-              fields(4).value,
-              fields(3).value,
-              fields(2).value,
-              fields(1).value,
-              fields(0).value, 0)
-  }
-
-  private def everyday(now: Scalendar) = {
-    val first = now.day(1)
-    val last = (first + 1.month) - 1.day
-    first.day.value to last.day.value
-  }
-
-  private def everyyear(now: Scalendar) = {
-    now.year.value to (now.year.value + 1)
-  }
-
   def next = nextFrom(Scalendar.now)
 
   def nextTime = {
@@ -107,79 +262,52 @@ case class Cron (second: String,
   }
 
   def nextFrom(now: Scalendar) = {
+    val dmonthField = DayField(dmonth, now)
+    val dweekField = DayOfWeekField(dweek, now)
+    val dayField = if (dweekField.isNotDefined) dmonthField else dweekField 
 
-    def evaluate(sec: String, min: String, h: String, 
-                 dmon: String, mon: String, y: String, t: Scalendar): Scalendar = {
-
-      // Get a days test
-      val taway = pullDateValue(mon, t, (1 to 12), _.month.value, _.months)
-
-      // Smallest to largest
-      val fields = List(
-         pullDateValue(sec, t, (0 to 59), _.second.value, _.seconds),
-         pullDateValue(min, t, (0 to 59), _.minute.value, _.minutes),
-         pullDateValue(h, t, (0 to 23), _.hour.value, _.hours),
-         pullDateValue(dmon, t, everyday(now.month(taway.value)), _.day.value, _.days),
-         taway,
-         pullDateValue(y, t, everyyear(now), _.year.value, _.years)
-      )
-
-      // First attempt
-      val attempt = createCal(fields) 
-      val difference = (t to attempt).delta.milliseconds
-
-      val completed = fields.foldLeft(true)(_ && _.isInstanceOf[Actual])
-
-      if (completed) {
-        def applyDay(dvalue: Int) = {
-          val test = attempt.inWeek(dvalue + 1)
-          (attempt to test).delta.milliseconds >= 0
-        }
-        pullDateValue(dweek, attempt, (0 to 6), _.inWeek - 1, _.weeks) match {
-          case Actual(value) if !applyDay(value) => attempt.inWeek(value + 1) + 1.week
-          case Actual(value) => 
-            val test = attempt.inWeek(value + 1) - 1.week
-            if ((t to test).delta.milliseconds < 0) attempt.inWeek(value + 1)
-            else test
-          case Potential(_, _, cycle) => cycle.find(applyDay) match {
-            case Some(day) => attempt.inWeek(day + 1)
-            case None => attempt.inWeek(cycle.head + 1) + 1.week
-          }
-        }
-      } else {
-        val indexed = fields.zipWithIndex
-        val interest = indexed.filter(_._1.isInstanceOf[Potential]).find { 
-          case (field, ix) => 
-            val test = createCal(indexed.map {
-              case (f, i) if i < ix => f.get
-              case (f, i) if i == ix => f.next
-              case (f, _) => Actual(f.value)
-            })
-            (attempt to test).delta.milliseconds >= 0
-        }
-        val changed = interest match {
-          case Some(id) =>
-            indexed.map {
-              case (f, ix) if ix == id._2 => f.next.field
-              case (f, ix) if ix > id._2 => Actual(f.value).field
-              case (f, _) => f.field
-            }
-          case None => indexed.map( f => f._1.get.field)
-        }
-        evaluate(changed(0), changed(1), changed(2), changed(3), changed(4), changed(5), t)
-      }
-    }
-
-    val next = evaluate(
-      second,
-      minute,
-      hour,
-      dmonth,
-      month,
-      year, now
+    val fields = List (
+      SecondField(second, now),
+      MinuteField(minute, now),
+      HourField(hour, now),
+      dayField,
+      MonthField(month, now),
+      YearField(year, now)
     )
 
-    // If it's negative now, then there's nothing we can do about it
+    val indexed = fields.zipWithIndex
+
+    // Fill in values from calendar
+    val attempt = fields.foldLeft(now.millisecond(0)) { (in, field) =>
+      field.resetWith(in).evaluate(in)
+    }
+
+    // Not good enough for a first attempt
+    // If the first attempt works, then we use it
+    val next = if (attempt <= now) {
+      // Find a game changing potential, if one exists
+      val interest = indexed.filter(_._1.isPotential).find {
+        case (field, ix) => 
+          val test = field.evaluateNext(attempt) 
+          test > attempt && test > now
+      }
+
+      // If a game changing potential was found, then we use it
+      // otherwise we get the head of each potential
+      interest match {
+        case Some((f, ix)) => indexed.reverse.foldLeft(attempt) { 
+          (in, dup) => dup match {
+            case (field, i) if i < ix => field.resetWith(in).evaluateHead(in)
+            case (field, i) if i == ix => field.evaluateNext(in)
+            case (field, i) => field.evaluate(in)
+          }
+        }
+        case None => fields.foldLeft(attempt) { (in, field) =>
+          field.evaluateHead(in)
+        } 
+      }
+    } else attempt
+
     (now to next).delta.milliseconds
   }
 }

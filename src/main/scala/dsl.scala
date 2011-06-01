@@ -7,12 +7,9 @@ import scala.util.parsing.combinator._
 import com.github.philcali.scalendar.Imports._
 
 class Cronish (syntax: String) extends RegexParsers {
-  // Helper functions
-  private def valueMap[A](vals: Set[A]) = vals.map(_ toString) 
+  def monthnames = (1 to 12).map(Month(_).toString) 
 
-  def monthnames = valueMap(Month.values) 
-
-  def daynames = valueMap(Day.values)
+  def daynames = (1 to 7).map(Day(_).toString)
 
   def field(name: String) = name ^^ (_ => Map(name -> "*"))
 
@@ -30,7 +27,7 @@ class Cronish (syntax: String) extends RegexParsers {
 
   // General keywords
   val every = "Every" | "every"
-  val other = "other"
+  val other = "other".r
   val lists = "through" | "to" | "-"
   val number = """\d{1,2}""".r
   val repitition = ", and" | "," | "and"
@@ -86,7 +83,7 @@ class Cronish (syntax: String) extends RegexParsers {
 
   // Month Values
   def monthValue = (monthnames).mkString("|").r ^^ {
-    case month => Map("month" -> Month.values.find(_.toString == month).get.id.toString)
+    case month => Map("month" -> (monthnames.indexOf(month) + 1).toString)
   }
 
   // Year Values
@@ -94,10 +91,12 @@ class Cronish (syntax: String) extends RegexParsers {
 
   // Day Values
   def dayValue = (daynames).mkString("|").r ^^ {
-    case day => (Day.values.find(_.toString == day).get.id - 1).toString
+    case day => daynames.indexOf(day).toString
   }
 
-  def dayOfMonth = (st | nd | rd | th | "last") ^^ {
+  def ordering = (st | nd | rd | th | "last")
+
+  def dayOfMonth = ordering ^^ {
     case number if number == "last" => Map("day" -> "L")
     case number => Map("day" -> number)
   }
@@ -105,6 +104,11 @@ class Cronish (syntax: String) extends RegexParsers {
   def dayOfWeek = (dayValue | "the" ~> (weekend | weekday | "last day of week")) ^^ {
     case day if day == "last day of week" => Map("dweek" -> "L")
     case day => Map("dweek" -> day)
+  }
+
+  def dayOfWeekSpecial = ordering ~ dayValue ^^ {
+    case value ~ day if value == "last" => Map("dweek" -> "%sL".format(day))
+    case value ~ day => Map("dweek" -> "%s#%s".format(day, value))
   }
 
   // Connectors
@@ -143,7 +147,8 @@ class Cronish (syntax: String) extends RegexParsers {
 
   def dayConnector = "on" ~> (genlists("dweek", dayOfWeek)
                             | genreps("dweek", dayOfWeek)
-                            | dayOfWeek 
+                            | dayOfWeek
+                            | "the" ~> dayOfWeekSpecial 
                             | dayIncrement)
 
   def dayOfMonthConnector = "on the" ~> (genlists("day", dayOfMonth) <~ "day"
@@ -171,14 +176,20 @@ class Cronish (syntax: String) extends RegexParsers {
   }
 
   // Incremental Syntax
-  def timeIncrement = (fieldIncrementers("second") 
+  def keywordIncremental = every ~> timeSymbol
+  def timeIncrement = (keywordIncremental
+                     | fieldIncrementers("second") 
                      | fieldIncrementers("minute") 
                      | fieldIncrementers("hour")) 
   def dayMIncrement = every ~> dayOfMonth <~ "day" 
-  def dayWIncrement = every ~> dayValue ^^ {
+  def otherdayW = other ~> dayValue ^^ (_ + "/2")
+  def dayWIncrement = every ~> (dayValue | otherdayW) ^^ {
     case day => Map("dweek" -> day)
   }
-  def dayIncrement = fieldIncrementers("day") | dayMIncrement | dayWIncrement 
+  def dayIncrement = (fieldIncrementers("day") 
+                    | dayMIncrement 
+                    | dayWIncrement 
+                    | every ~> dayOfWeekSpecial)
 
   def increment = (timeIncrement 
                  | dayIncrement 

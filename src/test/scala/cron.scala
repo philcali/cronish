@@ -25,7 +25,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
   }
 
   "Cron syntax" should "support the 'last' keyword" in {
-    "Every month on the last day of week".crons should be === "* * * * L"
+    "Every month on the last Saturday".crons should be === "* * * * 6L"
     "Every last day".crons should be === "* * L * *"
     evaluating { "Every last month".cron } should produce [Exception]
   }
@@ -55,6 +55,18 @@ class CronTest extends FlatSpec with ShouldMatchers {
     "every last day in every month at every 4 hours".crons should be === "* */4 L * *"
     "every month on the last day at every 4 hours".crons should be === "* */4 L * *"
     "every Friday on the last day in every month at midnight".crons should be === "0 0 L * 5"
+  }
+
+  it should "support the special day of week syntax" in {
+    "every month on the last Friday at midnight".crons should be === "0 0 * * 5L"
+    "every month on the 2nd Friday at midnight".crons should be === "0 0 * * 5#2"
+    "every last Friday at midnight".crons should be === "0 0 * * 5L"
+    "every other Friday at midnight".crons should be === "0 0 * * 5/2"
+  }
+
+  it should "support the special time keywords" in {
+    "every midnight".crons should be === "every day at midnight".crons
+    "every midnight on the last Friday".crons should be === "0 0 * * 5L"
   }
 
   "Predefined crons" should "be correct" in {
@@ -163,11 +175,14 @@ class CronTest extends FlatSpec with ShouldMatchers {
         Scalendar.beginDay(now).day(1) + (1 month)
       },
       "Every last day in every month at midnight" -> { now =>
-        Scalendar.beginDay(now).day(1) + (1 month) - (1 day)
+        val last = Scalendar.beginDay(now).day(1) + 1.month - 1.day
+        if (now > last) last + 1.day + 1.month - 1.day
+        else last
       },
       "Every month on Wednesday at midnight" -> { now =>
         now.day.inWeek match {
-          case n if n >= 4 => (Scalendar.beginWeek(now) + (1 week)).inWeek(Day.Wednesday) 
+          case n if n >= 4 => 
+            (Scalendar.beginWeek(now) + (1 week)).inWeek(Day.Wednesday) 
           case _ => Scalendar.beginDay(now).inWeek(Day.Wednesday)
         } 
       },
@@ -180,9 +195,9 @@ class CronTest extends FlatSpec with ShouldMatchers {
                       else Scalendar.beginDay(now) + (1 day)
         working.hour(3).minute(30) 
       },
-      "Every Friday on the last day in every month at midnight" -> { now =>
+      "Every midnight on the last Friday in every month" -> { now =>
         def lastFriday(month: Int) = {
-          val current = now.month(month) 
+          val current = now.day(1).month(month) 
           val working = Scalendar.beginDay(current).day(1) + (1 month) - (1 day)
           if(working.inWeek >= 6) working.inWeek(6)
           else working.inWeek(6) - 1.week
@@ -196,10 +211,12 @@ class CronTest extends FlatSpec with ShouldMatchers {
     for (test <- tests; val (crons, expected) = test) {
       val cron = crons.cron
 
-      val now = Scalendar.now
+      val n = Scalendar.now
+      val millis = cron.nextFrom(n)
 
-      val result = Scalendar(now.time + cron.nextFrom(now))
-      result should be === expected(now)
+      val result = Scalendar(n.time + millis)
+
+      result should be === expected(n)
     }
   }
 }
