@@ -1,9 +1,9 @@
-package com.github.philcali.cronish 
+package com.github.philcali
+package cronish 
+package dsl
 package test
 
-import dsl._
-
-import com.github.philcali.scalendar._
+import scalendar._
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
@@ -81,11 +81,11 @@ class CronTest extends FlatSpec with ShouldMatchers {
       println("Building something leet")
     }
 
-    test.isInstanceOf[jobs.CronTask] should be === true
+    test.isInstanceOf[CronTask] should be === true
     
     val testjob = test executes "every second"
 
-    testjob.isInstanceOf[jobs.Scheduled] should be === true
+    testjob.isInstanceOf[Scheduled] should be === true
     testjob.stop()
   }
 
@@ -160,7 +160,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     job(println("Tell like it is")) describedAs "on" runs monthly
     job(println("Tell like it is")) describedAs "dude" runs yearly
 
-    val active = jobs.Scheduled.active
+    val active = Scheduled.active
     val expected = "Tell him later on dude"
     active.map(_.task.description.get).mkString(" ") should be === expected 
     

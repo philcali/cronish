@@ -1,23 +1,11 @@
-package com.github.philcali.cronish 
-package jobs
+package com.github.philcali
+package cronish
+package dsl
 
-import dsl.string2cron
 import java.util.{Timer, TimerTask}
 
-import com.github.philcali.scalendar._
+import scalendar._
 import conversions._
-
-class CronTask(val description: Option[String], work: => Unit) {
-  def run() = work
-
-  def runs(definition: String) = executes(definition)
-  def runs(definition: Cron) = executes(definition)
-
-  def executes(definition: String): Scheduled = executes(definition.cron)
-  def executes(definition: Cron): Scheduled = Scheduled(this, definition)
-
-  def describedAs(something: String) = new CronTask(Some(something), work)
-}
 
 object Scheduled {
   private val crons = collection.mutable.ListBuffer[Scheduled]()
@@ -36,7 +24,19 @@ object Scheduled {
   def active = crons.toList
 }
 
-class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
+class CronTask(val description: Option[String], work: => Unit) {
+  def run() = work
+
+  def runs(definition: String) = executes(definition)
+  def runs(definition: Cron) = executes(definition)
+
+  def executes(definition: String): Scheduled = executes(definition.cron)
+  def executes(definition: Cron): Scheduled = Scheduled(this, definition)
+
+  def describedAs(something: String) = new CronTask(Some(something), work)
+}
+
+private [dsl] class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
   protected val timer = new Timer
 
   def stop() = { timer.cancel(); Scheduled.destroy(this) }
@@ -70,12 +70,13 @@ class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
   private def schedule = try {
     timer.schedule(interval, definition.next) 
   } catch {
+    // TODO: Log the likely ones
     case e: IllegalArgumentException => 
       println("Given cron scheduler a negative time")
     case e: IllegalStateException => 
       println("Tried to initiate cron task after scheduler stopped.")
     case e: Exception => 
-      println("Cron Execution Error: %s" format(e.getMessage))
+      throw new RuntimeException(e)
   }
 
   private def start() = if (delay <= 0) schedule else {
