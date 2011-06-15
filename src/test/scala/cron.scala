@@ -3,8 +3,7 @@ package test
 
 import dsl._
 
-// For Calendar
-import com.github.philcali.scalendar.Imports._
+import com.github.philcali.scalendar._
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers

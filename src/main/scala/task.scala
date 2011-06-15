@@ -4,8 +4,8 @@ package jobs
 import dsl.string2cron
 import java.util.{Timer, TimerTask}
 
-import com.github.philcali.scalendar.Scalendar
-import com.github.philcali.scalendar.conversions._
+import com.github.philcali.scalendar._
+import conversions._
 
 class CronTask(val description: Option[String], work: => Unit) {
   def run() = work

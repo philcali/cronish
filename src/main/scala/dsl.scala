@@ -1,10 +1,10 @@
-package com.github.philcali.cronish 
+package com.github.philcali
+package cronish
 package dsl
 
 import scala.util.parsing.combinator._
 
-// For Calendar
-import com.github.philcali.scalendar.Imports._
+import scalendar._
 
 class Cronish (syntax: String) extends RegexParsers {
   def monthnames = (1 to 12).map(Month(_).toString) 
