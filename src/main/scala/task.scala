@@ -7,17 +7,6 @@ import java.util.{Timer, TimerTask}
 import com.github.philcali.scalendar._
 import conversions._
 
-class CronTask(val description: Option[String], work: => Unit) {
-  def run() = work
-
-  def runs(definition: String) = executes(definition)
-  def runs(definition: Cron) = executes(definition)
-
-  def executes(definition: String): Scheduled = executes(definition.cron)
-  def executes(definition: Cron): Scheduled = Scheduled(this, definition)
-
-  def describedAs(something: String) = new CronTask(Some(something), work)
-}
 
 object Scheduled {
   private val crons = collection.mutable.ListBuffer[Scheduled]()
@@ -36,7 +25,19 @@ object Scheduled {
   def active = crons.toList
 }
 
-class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
+class CronTask(val description: Option[String], work: => Unit) {
+  def run() = work
+
+  def runs(definition: String) = executes(definition)
+  def runs(definition: Cron) = executes(definition)
+
+  def executes(definition: String): Scheduled = executes(definition.cron)
+  def executes(definition: Cron): Scheduled = Scheduled(this, definition)
+
+  def describedAs(something: String) = new CronTask(Some(something), work)
+}
+
+private [jobs] class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
   protected val timer = new Timer
 
   def stop() = { timer.cancel(); Scheduled.destroy(this) }
