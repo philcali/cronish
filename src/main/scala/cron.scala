@@ -1,11 +1,7 @@
-package com.github.philcali.cronish
+package com.github.philcali
+package cronish
 
-import com.github.philcali.scalendar.{
-  Scalendar,
-  Imports,
-  conversions
-}
-import Imports._
+import scalendar._
 import java.util.Calendar._
 
 case class Cron (second: String, 
