@@ -6,7 +6,9 @@ import scala.util.parsing.combinator._
 
 import scalendar._
 
-class Cronish (syntax: String) extends RegexParsers {
+object Cronish extends RegexParsers {
+  def apply (syntax: String) = new Cronish(cronOption(syntax)) 
+
   def monthnames = (1 to 12).map(Month(_).toString) 
 
   def daynames = (1 to 7).map(Day(_).toString)
@@ -206,15 +208,8 @@ class Cronish (syntax: String) extends RegexParsers {
     for((k, v) <- fin) yield((k, v + mods.getOrElse(k+"Modifier", "")))
   }
 
-  // Public conversions
-  def cron = cronOption fold ({ msg =>
-    throw new IllegalArgumentException(msg)
-  }, a => a) 
-
-  def crons = cron.toString
-
   // Safe conversion
-  def cronOption = {
+  private def cronOption(syntax: String) = {
     parseAll(incrementers, syntax) match {
       case Success(parsed, _) =>
         Right(Cron(
@@ -232,4 +227,15 @@ class Cronish (syntax: String) extends RegexParsers {
         Left(msg)
     }
   }
+}
+
+// Public API through Cronish object
+private [dsl] class Cronish (contents: Either[String, Cron]) {
+  def cron = cronOption fold ({ msg =>
+    throw new IllegalArgumentException(msg)
+  }, a => a) 
+
+  def crons = cron.toString
+
+  def cronOption = contents
 }

@@ -1,12 +1,11 @@
-package com.github.philcali.cronish 
-package jobs
+package com.github.philcali
+package cronish
+package dsl
 
-import dsl.string2cron
 import java.util.{Timer, TimerTask}
 
-import com.github.philcali.scalendar._
+import scalendar._
 import conversions._
-
 
 object Scheduled {
   private val crons = collection.mutable.ListBuffer[Scheduled]()
@@ -37,7 +36,7 @@ class CronTask(val description: Option[String], work: => Unit) {
   def describedAs(something: String) = new CronTask(Some(something), work)
 }
 
-private [jobs] class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
+private [dsl] class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
   protected val timer = new Timer
 
   def stop() = { timer.cancel(); Scheduled.destroy(this) }
@@ -71,12 +70,13 @@ private [jobs] class Scheduled(val task: CronTask, val definition: Cron, delay: 
   private def schedule = try {
     timer.schedule(interval, definition.next) 
   } catch {
+    // TODO: Log the likely ones
     case e: IllegalArgumentException => 
       println("Given cron scheduler a negative time")
     case e: IllegalStateException => 
       println("Tried to initiate cron task after scheduler stopped.")
     case e: Exception => 
-      println("Cron Execution Error: %s" format(e.getMessage))
+      throw new RuntimeException(e)
   }
 
   private def start() = if (delay <= 0) schedule else {
