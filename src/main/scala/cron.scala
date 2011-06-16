@@ -12,6 +12,8 @@ case class Cron (second: String,
                  dweek: String,
                  year: String) {
 
+  def full = List(second, minute, hour, dmonth, month, dweek, year).mkString(" ")
+
   // Helpful extractors for understanding Cron
   object FieldModifier {
     def unapply(field: String) = {

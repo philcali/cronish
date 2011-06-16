@@ -6,14 +6,12 @@ import java.util.{Timer, TimerTask}
 
 import scalendar._
 import conversions._
+import Logging._
 
 object Scheduled {
   private val crons = collection.mutable.ListBuffer[Scheduled]()
 
-  def apply(task: CronTask, definition: Cron): Scheduled = 
-    apply(task, definition, 0)
-
-  def apply(task: CronTask, definition: Cron, delay: Long) = {
+  def apply(task: CronTask, definition: Cron, delay: Long = 0): Scheduled = { 
     val ros = new Scheduled(task, definition, delay)
     crons += ros
     ros
@@ -36,7 +34,10 @@ class CronTask(val description: Option[String], work: => Unit) {
   def describedAs(something: String) = new CronTask(Some(something), work)
 }
 
-private [dsl] class Scheduled(val task: CronTask, val definition: Cron, delay: Long) {
+private [dsl] class Scheduled(
+    val task: CronTask, 
+    val definition: Cron, 
+    delay: Long) { 
   protected val timer = new Timer
 
   def stop() = { timer.cancel(); Scheduled.destroy(this) }
@@ -70,11 +71,10 @@ private [dsl] class Scheduled(val task: CronTask, val definition: Cron, delay: L
   private def schedule = try {
     timer.schedule(interval, definition.next) 
   } catch {
-    // TODO: Log the likely ones
     case e: IllegalArgumentException => 
-      println("Given cron scheduler a negative time")
+      info("Given cron scheduler a negative time: %s".format(definition.full))
     case e: IllegalStateException => 
-      println("Tried to initiate cron task after scheduler stopped.")
+      info("Tried to initiate cron task after scheduler stopped.")
     case e: Exception => 
       throw new RuntimeException(e)
   }

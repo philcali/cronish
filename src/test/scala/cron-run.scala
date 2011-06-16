@@ -1,6 +1,8 @@
-package com.github.philcali.cronish.dsl
+package com.github.philcali.cronish
+package dsl
 
 import com.github.philcali.scalendar._
+import Logging._
 
 object Main {
   // Visual tests
@@ -29,5 +31,12 @@ object Main {
       println("%d: %s" format(run, current))
       println("%d: %s" format(run, Scalendar(current.time + millis)))
     }
+
+    val thisJob = job(warn("Testing logger"))
+    thisJob runs "every second"
+    thisJob runs "every day in the year 2009"
+    Thread.sleep(1100)
+
+    Scheduled.active.foreach(_.stop)
   }
 }
