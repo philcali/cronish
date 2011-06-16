@@ -76,7 +76,7 @@ private [dsl] class Scheduled(
     case e: IllegalStateException => 
       info("Tried to initiate cron task after scheduler stopped.")
     case e: Exception => 
-      throw new RuntimeException(e)
+      severe("Cron execution error: %s".format(e.getMessage))
   }
 
   private def start() = if (delay <= 0) schedule else {
