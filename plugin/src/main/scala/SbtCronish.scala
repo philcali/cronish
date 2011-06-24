@@ -25,7 +25,7 @@ object SbtCronish extends Plugin {
   val cronishAddSbt = InputKey[Unit]("cronish-add-sbt",
               "Adds a sbt task to be executed at a defined interval.")
 
-  val cronishAddDef = (parsedTask: TaskKey[(String, Seq[Char])]) => {
+  private val cronishAddDef = (parsedTask: TaskKey[(String, Seq[Char])]) => {
     (parsedTask, state, streams) map { case ( (es, crons), st, s ) =>
       val cronD = "every%s" format (crons.mkString)
       job {
@@ -36,9 +36,9 @@ object SbtCronish extends Plugin {
     }
   }
 
-  val generalParser = Space ~ "runs" ~ Space ~> token("every" ~> (any +))
+  private val generalParser = Space ~ "runs" ~ Space ~> token("every" ~> (any +))
 
-  val cronishParser = (s: State) => {
+  private val cronishParser = (s: State) => {
     val extracted = Project.extract(s)
     import extracted._
     val index = structure.index
@@ -46,7 +46,7 @@ object SbtCronish extends Plugin {
     Space ~> ( ts.reduceLeft(_ | _) )
   }
 
-  override val settings = Seq (
+  val cronishSettings = Seq (
     cronishTasks := List[Scheduled](),
  
     cronishAddSh <<= inputTask { argTask =>
