@@ -53,8 +53,8 @@ final class Scheduled private (
   // Executing
   private var executing = true
 
-  // Pulsar
-  private val timer = new Timer
+  // Daemon Pulsar
+  private val timer = new Timer(true)
 
   def stop(): Unit = parent ! Stop 
 
