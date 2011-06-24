@@ -81,8 +81,11 @@ case class Cron (second: String,
     def pullValue = field match {
       case "*" => Potential(valued(now), everything)
       case "L" => Potential(everything.last, List(everything.last)) 
-      case FieldModifier(value, mod) if value == "*" => 
-        Potential(everything.head + mod, everything)
+      case FieldModifier(value, mod) if value == "*" =>
+        val valr = valued(now)
+        val modder = valr % mod
+        val n = if(modder == 0) valr + mod else valr - modder + mod
+        Potential(n, everything)
       case FieldModifier(value, mod) => Potential(value.toInt, everything)
       case FieldList(fields) => 
         fields.find(_ >= valued(now)) match {
