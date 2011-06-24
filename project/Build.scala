@@ -5,17 +5,23 @@ import Keys._
 object General {
   val settings = Defaults.defaultSettings ++ Seq (
     organization := "com.github.philcali",
-    version := "0.0.1",
-    scalaVersion := "2.9.0",
-    crossScalaVersions := Seq("2.9.0", "2.8.1", "2.8.0")
+    version := "0.0.1"
   )
 }
 
 object Cronish extends Build {
-  lazy val cronish = Project (
+  lazy val cronishRoot = Project (
+    "cronish-root",
+    file("."),
+    settings = General.settings
+  ) aggregate (cronish, cronishApp, cronishPlugin)
+
+  lazy val cronish: Project = Project (
     "cronish",
     file("core"),
     settings = General.settings ++ Seq (
+      scalaVersion := "2.8.1",
+      crossScalaVersions := Seq("2.9.0", "2.8.1", "2.8.0"),
       libraryDependencies += "com.github.philcali" %% "scalendar" % "0.0.5",
       libraryDependencies <+= (scalaVersion) {
         case v if v contains "2.8" =>  
@@ -26,17 +32,19 @@ object Cronish extends Build {
     )
   )
 
-  lazy val cronishApp = Project (
+  lazy val cronishApp: Project = Project (
     "cronish-app",
     file("app"),
     settings = General.settings ++ Seq (
-      libraryDependencies += "org.scala-tools.sbt" % "launcher-interface" % "0.7.7" % "provided" from "http://databinder.net/repo/org.scala-tools.sbt/launcher-interface/0.7.7/jars/launcher-interface.jar"
+      libraryDependencies += "org.scala-tools.sbt" % "launcher-interface" % "0.10.0"
     )
   ) dependsOn cronish
 
-  lazy val cronishPlugin = Project (
+  lazy val cronishPlugin: Project = Project (
     "cronish-sbt",
     file("plugin"),
-    settings = General.settings
+    settings = General.settings ++ Seq (
+      sbtPlugin := true
+    )
   ) dependsOn cronish
 }
