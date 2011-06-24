@@ -35,8 +35,12 @@ object Main {
     val thisJob = job(warn("Testing logger"))
     thisJob runs "every second"
     thisJob runs "every day in the year 2009"
+    
+    // This one won't run
+    thisJob runs "every second" in 1.second 
+
     Thread.sleep(1100)
 
-    Scheduled.active.foreach(_.stop)
+    Scheduled.destroyAll
   }
 }

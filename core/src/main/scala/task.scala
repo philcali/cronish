@@ -4,6 +4,8 @@ package dsl
 
 import java.util.{Timer, TimerTask}
 
+import actors.Actor
+
 import scalendar._
 import conversions._
 import Logging._
@@ -18,6 +20,8 @@ object Scheduled {
   }
 
   def destroy(old: Scheduled) = crons -= old
+
+  def destroyAll = crons foreach (_.stop)
 
   def active = crons.toList
 }
@@ -41,10 +45,34 @@ class CronTask(val description: Option[String], work: => Unit) {
 final class Scheduled private (
     val task: CronTask, 
     val definition: Cron, 
-    delay: Long) { 
-  protected val timer = new Timer
+    delay: Long) extends Actor { parent => 
 
-  def stop() = { timer.cancel(); Scheduled.destroy(this) }
+  private case object Stop
+  private case object Execute
+
+  // Executing
+  private var executing = true
+
+  // Pulsar
+  private val timer = new Timer
+
+  def stop(): Unit = parent ! Stop 
+
+  def act = {
+    delayedStart
+
+    loopWhile (executing) {
+      react {
+        case Stop => 
+          executing = false 
+          timer.cancel()
+          Scheduled.destroy(this) 
+        case Execute => 
+          task.run()
+          schedule
+      }
+    }
+  }
 
   // Reset the job
   def reset() = preserve {
@@ -66,10 +94,7 @@ final class Scheduled private (
   }
 
   private def interval: TimerTask = new TimerTask {
-    def run() = {
-      task.run()
-      schedule
-    }
+    def run() = parent ! Execute
   }
  
   private def schedule = try {
@@ -83,7 +108,7 @@ final class Scheduled private (
       severe("Cron execution error: %s".format(e.getMessage))
   }
 
-  private def start() = if (delay <= 0) schedule else {
+  private def delayedStart() = if (delay <= 0) schedule else {
     timer.schedule(new TimerTask {
       def run() = schedule
     }, delay)
