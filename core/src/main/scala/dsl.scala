@@ -230,7 +230,7 @@ object Cronish extends RegexParsers {
 }
 
 // Public API through Cronish object
-private [dsl] class Cronish (contents: Either[String, Cron]) {
+final class Cronish private (contents: Either[String, Cron]) {
   def cron = cronOption fold ({ msg =>
     throw new IllegalArgumentException(msg)
   }, a => a) 

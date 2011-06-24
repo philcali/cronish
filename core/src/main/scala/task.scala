@@ -25,16 +25,20 @@ object Scheduled {
 class CronTask(val description: Option[String], work: => Unit) {
   def run() = work
 
+  def runsAndDescribedAs(definition: String) = {
+    new CronTask(Some("A job that runs %s" format(definition)), work)
+  }
+
   def runs(definition: String) = executes(definition)
   def runs(definition: Cron) = executes(definition)
 
-  def executes(definition: String): Scheduled = executes(definition.cron)
+  def executes(definition: String): Scheduled = executes (definition.cron)
   def executes(definition: Cron): Scheduled = Scheduled(this, definition)
 
   def describedAs(something: String) = new CronTask(Some(something), work)
 }
 
-private [dsl] class Scheduled(
+final class Scheduled private (
     val task: CronTask, 
     val definition: Cron, 
     delay: Long) { 
