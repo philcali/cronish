@@ -36,7 +36,10 @@ object Cronish extends Build {
     "cronish-app",
     file("app"),
     settings = General.settings ++ Seq (
-      libraryDependencies += "org.scala-tools.sbt" % "launcher-interface" % "0.10.0"
+      libraryDependencies ++= Seq (
+        "org.scala-tools.sbt" % "launcher-interface" % "0.10.0",
+        "com.github.philcali" %% "monido-core" % "0.0.3"
+      )
     )
   ) dependsOn cronish
 
