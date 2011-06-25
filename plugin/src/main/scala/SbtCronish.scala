@@ -6,6 +6,17 @@ import complete.DefaultParsers._
 import com.github.philcali.cronish.dsl._
 
 object SbtCronish extends Plugin {
+ 
+  object add {
+    def > (work: ProcessBuilder) = 
+      job (work !) describedAs "process %s".format(work)
+    def sh (cmd: String) = 
+      job(cmd !) describedAs "sh action %s".format(cmd)
+    def sbt (cmd: String, st: State) = job {
+      Command.process(cmd, st) 
+    } describedAs "sbt action %s".format(cmd)
+  }
+
   val cronishTasks = SettingKey[Seq[Scheduled]]("cronish-tasks", "Actively defined crons.")
 
   val cronishList = TaskKey[Unit]("cronish-list", "Lists all the active tasks")
@@ -28,10 +39,9 @@ object SbtCronish extends Plugin {
   private val cronishAddDef = (parsedTask: TaskKey[(String, Seq[Char])]) => {
     (parsedTask, state, streams) map { case ( (es, crons), st, s ) =>
       val cronD = "every%s" format (crons.mkString)
-      job {
-        s.log.info("Executing %s".format(es))
-        Command.process(es, st)
-      } describedAs "sbt action %s".format(es) runs cronD
+
+      add sbt (es, st) runs cronD    
+
       s.log.info("Adding %s to be run %s".format(es, cronD))
     }
   }
@@ -52,7 +62,8 @@ object SbtCronish extends Plugin {
     cronishAddSh <<= inputTask { argTask =>
       (argTask, streams) map { (args, s) =>
         val Array(cmd, crons) = args.mkString(" ").split(" runs ")
-        job(cmd !) describedAs cmd runs crons
+
+        add sh cmd runs crons
 
         s.log.info("Successfully added task")
       }
