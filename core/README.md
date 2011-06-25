@@ -31,7 +31,22 @@ Using cronish, we can almost write this verbatim...
 ## Determining the Next Run
 
 A `Cron` object created from an expression, or created manually, can determine its next run from now, or a 
-specific time in the future.
+specific time in the future. Here's a few examples of this:
+
+    import com.github.philcali.scalendar._
+
+    val cron = "every 10 days".cron
+    val now = Scalendar.now
+
+    println(cron.nextFrom(now)) // returns milliseconds
+    println(cron.nextFrom(now + 12.days)) // can advance
+
+    println(cron.nextTime) // returns a Scalendar object
+    println(now to cron.nextTime) // This is obviously a duration
+
+    println(cron.next) // returns milliseconds from Scalendar.now
+
+    println(cron.nextFrom(cron.nextTime)) // The next-next run
 
 ## Creating a Cron Job
 
@@ -44,5 +59,41 @@ sbt task creation.
 
     // Yes... that's how you run it 
     payroll executes "every last Friday in every month"
+
+A job can easily do the following:
+
+  * delayed start
+  * exact start
+  * reset
+
+An example of the three below:
+
+    val greetings = job (println("Hello there")) describedAs "General Greetings"
+
+    // give a delayed start
+    val delayed = greetings runs "every day at 7:30" in 5.seconds
+
+    // give an exact time to start
+    val exact = greetings runs "every day at noon" starting now + 1.week
+
+    // resets a job to its definition 
+    val reseted = exact.reset()
+
+    reseted starting now + 1.day
+
+## Cron Management
+
+All jobs described previously are loaded up in a singleton Cron manager 
+via the `Scheduled` object.
+
+    // Gets a list of all active jobs
+    Scheduled.active
+    Scheduled.active.foreach(_.stop)
+    
+    // Destroys all jobs (same as above)
+    Scheduled.destroyAll
+
+    // Destroys a single instance
+    Scheduled.destroy(Scheduled.active(0))
 
 [cron]: http://en.wikipedia.org/wiki/Cron#Examples_2
