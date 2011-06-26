@@ -5,7 +5,10 @@ import Keys._
 object General {
   val settings = Defaults.defaultSettings ++ Seq (
     organization := "com.github.philcali",
-    version := "0.0.1"
+    version := "0.0.1",
+    publishTo := Some("Scala Tools Nexus" at 
+                      "http://nexus.scala-tools.org/content/repositories/releases/"),
+    credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
   )
 }
 
@@ -37,8 +40,8 @@ object Cronish extends Build {
     file("app"),
     settings = General.settings ++ Seq (
       libraryDependencies ++= Seq (
-        "org.scala-tools.sbt" % "launcher-interface" % "0.10.0",
-        "com.github.philcali" %% "monido-core" % "0.0.3"
+        "com.github.philcali" %% "monido-core" % "0.0.3",
+        "org.scala-tools.sbt" % "launcher-interface" % "0.10.0"
       )
     )
   ) dependsOn cronish
