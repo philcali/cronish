@@ -46,14 +46,14 @@ object SbtCronish extends Plugin {
     }
   }
 
-  private val generalParser = Space ~ "runs" ~ Space ~> token("every" ~> (any +))
+  private val generalParser = token(Space ~ "runs" ~ Space) ~> "every" ~> (any +)
 
   private val cronishParser = (s: State) => {
     val extracted = Project.extract(s)
     import extracted._
-    val index = structure.index
-    val ts = index.keyIndex.keys(Some(currentRef)).toSeq map (str => token(str ~ generalParser))
-    Space ~> ( ts.reduceLeft(_ | _) )
+    Space flatMap { _ =>
+      matched(s.combinedParser) ~ generalParser
+    }
   }
 
   val cronishSettings = Seq (
