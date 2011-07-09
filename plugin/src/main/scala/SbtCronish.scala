@@ -49,14 +49,19 @@ object SbtCronish extends Plugin {
   private val generalParser = token(Space ~ "runs" ~ Space) ~> "every" ~> (any +)
 
   private val cronishParser = (s: State) => {
-    val extracted = Project.extract(s)
-    import extracted._
     Space flatMap { _ =>
       matched(s.combinedParser) ~ generalParser
     }
   }
 
-  val cronishSettings = Seq (
+  override lazy val settings = 
+    cronishSettings ++ Seq (
+      cronishList,
+      cronishAddSh,
+      cronishAddSbt
+    ).map (aggregate in _ := false )
+
+  private val cronishSettings: Seq[Project.Setting[_]] = Seq (
     cronishTasks := List[Scheduled](),
  
     cronishAddSh <<= inputTask { argTask =>
