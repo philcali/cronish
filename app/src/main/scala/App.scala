@@ -116,15 +116,19 @@ class App extends xsbti.AppMain {
           Console.readLine
           daemon ! Stop
         case Pop(ix) => 
+          val lines = open(conf).getLines.zipWithIndex.toList
+
           val writer = new java.io.FileWriter(conf)
-          for((line, i) <- open(conf).getLines.zipWithIndex; if i != ix.toInt) {
+          for((line, i) <- lines; if i != ix.toInt) {
             writer.write(line + "\n")
           }
           writer.close()
+          println("Successfully removed %s".format(ix))
         case Task(cmd, syntax) => 
           val writer = new java.io.FileWriter(conf, true)
           writer.write(Task(cmd, syntax) + "\n")
           writer.close()
+          println("Successfully wrote %s" format (Task(cmd, syntax)))
         case list if list.contains("-l") => 
           open(conf).getLines.zipWithIndex.foreach { tup =>
             println("{%d}: %s".format(tup._2, tup._1))
