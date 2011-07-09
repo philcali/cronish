@@ -5,7 +5,7 @@ import Keys._
 object General {
   val settings = Defaults.defaultSettings ++ Seq (
     organization := "com.github.philcali",
-    version := "0.0.1",
+    version := "0.0.2",
     publishTo := Some("Scala Tools Nexus" at 
                       "http://nexus.scala-tools.org/content/repositories/releases/"),
     credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
@@ -17,13 +17,12 @@ object Cronish extends Build {
     "cronish-root",
     file("."),
     settings = General.settings
-  ) aggregate (cronish, cronishApp, cronishPlugin)
+  ) aggregate (cronish, cronishApp)
 
   lazy val cronish: Project = Project (
     "cronish",
     file("core"),
     settings = General.settings ++ Seq (
-      scalaVersion := "2.8.1",
       crossScalaVersions := Seq("2.9.0", "2.8.1", "2.8.0"),
       libraryDependencies += "com.github.philcali" %% "scalendar" % "0.0.5",
       libraryDependencies <+= (scalaVersion) {
