@@ -9,8 +9,6 @@ In your `project/plugins/build.sbt` definition, place the following line:
   
     libraryDependencies += "com.github.philcali" %% "cronish-sbt" % "0.0.1"
 
-In your `build.sbt` or `project/Build.scala`, you must include `SbtCronish.cronishSettings`.
-
 ## Cronish Tasks
 
 The important tasks in this regard being:
