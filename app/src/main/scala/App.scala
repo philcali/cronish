@@ -133,7 +133,9 @@ class App extends xsbti.AppMain {
           open(conf).getLines.zipWithIndex.foreach { tup =>
             println("{%d}: %s".format(tup._2, tup._1))
           }
-        case syntax => println(syntax.cronOption.fold(e => e, _.full))
+        case syntax => println(syntax.cronOption.fold(e => e, { c =>
+            "%s next run is %s".format(c.full, c.nextTime)
+          }))
       }
     }
 
