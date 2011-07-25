@@ -1,6 +1,6 @@
 # Cronish Core
 
-** Note **: I moved the [cronish-sbt](https://github.com/philcali/cronish-sbt) 
+**Note**: I moved the [cronish-sbt](https://github.com/philcali/cronish-sbt) 
 plugin and the [cronish-app](https://github.com/philcali/cronish-app) into 
 their own repositories.
 
