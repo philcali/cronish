@@ -166,6 +166,36 @@ class CronTest extends FlatSpec with ShouldMatchers {
     
     active.foreach(_.stop())
   }
+
+  "A Scheduled job" should "be able to handle errors optionally" in {
+    val exampleJob = job (throw new RuntimeException("Catch this"))
+
+    exampleJob catches (_.getMessage should be === "Catch this")
+
+    val running = exampleJob runs "every second"
+
+    Thread.sleep(1000)
+    
+    running.stop()
+  }
+
+  it should "be able to add starting and stopping handlers" in {
+    var counter = 1
+    
+    val exampleJob = job (counter += 1) starts (counter -= 1) ends (counter = 0)
+    
+    exampleJob runs "every second" stop()
+
+    counter should be === 0
+  }
+
+  it should "be able to run an exact number of times or forever" in {
+    val exampleJob = job(println("Test"))
+    val exact = exampleJob runs "every second" exactly 2.times
+    val running = exampleJob runs "every second" until Scalendar.now + 1.week
+
+    List(exact, running) foreach (_.stop())
+  }
  
   "A cron" should "be able to determine its next run" in {
     val tests = List[(String, Scalendar => Scalendar)](

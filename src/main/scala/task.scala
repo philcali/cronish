@@ -13,8 +13,11 @@ import Logging._
 object Scheduled {
   private val crons = collection.mutable.ListBuffer[Scheduled]()
 
-  def apply(task: CronTask, definition: Cron, delay: Long = 0): Scheduled = { 
-    val ros = new Scheduled(task, definition, delay)
+  def apply(task: CronTask, 
+            definition: Cron, 
+            delay: Long = 15, 
+            stopper: StopGap = Infinite): Scheduled = { 
+    val ros = new Scheduled(task, definition, delay, stopper)
     crons += ros
     ros
   }
@@ -26,12 +29,13 @@ object Scheduled {
   def active = crons.toList
 }
 
-class CronTask(val description: Option[String], work: => Unit) {
-  def run() = work
+class CronTask(work: => Unit,
+           val description: Option[String] = None, 
+           val startHandler: Option[Function0[Unit]] = None,
+           val errHandler: Option[(Exception => Unit)] = None,
+           val exitHandler: Option[Function0[Unit]] = None) {
 
-  def runsAndDescribedAs(definition: String) = {
-    new CronTask(Some("A job that runs %s" format(definition)), work)
-  }
+  def run() = work
 
   def runs(definition: String) = executes(definition)
   def runs(definition: Cron) = executes(definition)
@@ -39,24 +43,61 @@ class CronTask(val description: Option[String], work: => Unit) {
   def executes(definition: String): Scheduled = executes (definition.cron)
   def executes(definition: Cron): Scheduled = Scheduled(this, definition)
 
-  def describedAs(something: String) = new CronTask(Some(something), work)
+  def describedAs(something: String) = 
+    new CronTask(work, Some(something), startHandler, errHandler, exitHandler)
+
+  def starts(handler: => Unit) =
+    new CronTask(work, description, Some(() => handler), errHandler, exitHandler)
+
+  def catches(handler: Exception => Unit) =
+    new CronTask(work, description, startHandler, Some(handler), exitHandler)
+
+  def ends(handler: => Unit) =
+    new CronTask(work, description, startHandler, errHandler, Some(() => handler))
 }
 
-final class Scheduled private (
+trait StopGap {
+  def check: Option[Int]
+  def times(limit: Int) = new Limited(limit)
+}
+
+class Limited(var limit: Int) extends StopGap {
+  require(limit > 0)
+
+  def check = {
+    limit -= 1
+    if (limit == 0) None else Some(limit)
+  }
+}
+
+class Timed(limit: Scalendar) extends StopGap {
+  def check = {
+    if (limit < Scalendar.now) None else Some(1)
+  }
+}
+
+case object Infinite extends StopGap {
+  def check = Some(1)
+}
+
+class Scheduled private (
     val task: CronTask, 
     val definition: Cron, 
-    delay: Long) extends Actor { parent => 
+    val delay: Long,
+    val stopGap: StopGap) extends Actor { parent => 
 
   private case object Stop
   private case object Execute
 
-  // Executing
   private var executing = true
 
   // Daemon Pulsar
   private val timer = new Timer(true)
 
-  def stop(): Unit = parent ! Stop 
+  def stop(): Unit = {
+    task.exitHandler.map(_.apply())
+    parent ! Stop 
+  }
 
   def act = {
     delayedStart
@@ -68,29 +109,42 @@ final class Scheduled private (
           timer.cancel()
           Scheduled.destroy(this) 
         case Execute => 
-          task.run()
-          schedule
+          try {
+            task.run()
+          } catch {
+            case e: Exception =>
+              task.errHandler.map(_.apply(e))
+          } finally {
+            stopGap.check.map(_ => schedule).orElse(Some(stop))
+          }
       }
     }
   }
 
-  // Reset the job
   def reset() = preserve {
-    Scheduled(task, definition, delay)
+    Scheduled(task, definition, delay, stopGap)
+  }
+
+  def exactly(stopper: StopGap) = preserve {
+    Scheduled(task, definition, delay, stopper)
+  }
+
+  def until(date: Scalendar) = preserve {
+    Scheduled(task, definition, delay, new Timed(date)) 
   }
 
   def starting(date: Scalendar) = preserve {
     val now = Scalendar.now
     val larger = if (date < now) now else date 
-    Scheduled(task, definition, larger.time - now.time) 
+    Scheduled(task, definition, larger.time - now.time, stopGap)
   }
 
   def in(d: Long) = preserve {
-    Scheduled(task, definition, d)
+    Scheduled(task, definition, d, stopGap)
   }
 
   def in(d: Evaluated) = preserve {
-    Scheduled(task, definition, d.milliseconds)
+    Scheduled(task, definition, d.milliseconds, stopGap)
   }
 
   private def interval: TimerTask = new TimerTask {
@@ -104,18 +158,23 @@ final class Scheduled private (
       info("Given cron scheduler a negative time: %s".format(definition.full))
     case e: IllegalStateException => 
       info("Tried to initiate cron task after scheduler stopped.")
-    case e: Exception => 
-      severe("Cron execution error: %s".format(e.getMessage))
+    case e: Exception =>
+      severe("Tried rescheduling task: %s".format(e.getMessage))
   }
 
-  private def delayedStart() = if (delay <= 0) schedule else {
+  private def delayedStart() = if (delay <= 0) initStart else {
     timer.schedule(new TimerTask {
-      def run() = schedule
+      def run() = initStart 
     }, delay)
   }
 
+  private def initStart() = {
+    task.startHandler.map(_.apply())
+    schedule
+  }
+
   private def preserve[A](block: => A): A = {
-    stop(); block
+    parent ! Stop; block
   }
 
   start()

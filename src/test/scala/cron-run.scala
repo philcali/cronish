@@ -33,14 +33,22 @@ object Main {
       println("%d: %s" format(run, Scalendar(current.time + millis)))
     }
 
-    val thisJob = job(warn("Testing logger"))
-    thisJob runs "every second"
-    thisJob runs "every day in the year 2009"
-    
-    // This one won't run
-    thisJob runs "every second" in 1.second 
+    val thisJob = job {
+      throw new Exception("Test Exception")
+    }
 
-    Thread.sleep(1100)
+    val advancedJob = thisJob starts {
+      println ("I'm starting up!")
+    } catches {
+      case e: Exception => 
+        println("This is horrible: %s".format(e.getMessage))
+    } ends {
+      println ("I'm stopping now")
+    }
+
+    advancedJob runs "every second" exactly 2.times
+
+    Thread.sleep(3000)
 
     Scheduled.destroyAll
   }
