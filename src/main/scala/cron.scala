@@ -283,6 +283,10 @@ case class Cron (second: String,
       field.resetWith(in).evaluate(in)
     }
 
+    lazy val rolled = fields.foldLeft(attempt) { (in, field) => 
+      field.evaluateHead(in) 
+    } 
+
     // Not good enough for a first attempt
     // If the first attempt works, then we use it
     val next = if (attempt <= now) {
@@ -307,7 +311,7 @@ case class Cron (second: String,
           field.evaluateHead(in)
         } 
       }
-    } else attempt
+    } else if (rolled > now) rolled else attempt 
 
     (now to next).delta.milliseconds
   }

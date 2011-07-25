@@ -22,7 +22,8 @@ object Main {
       "every midnight on the last day in every month",
       "every month at 2pm, 4pm, and 8pm on the 14th and 22nd days",
       "every midnight on the last Friday in every month",
-      "every 30 minutes at midnight on the 4th day in July"
+      "every 30 minutes at midnight on the 4th day in July",
+      "every day at 3:30 on Tuesday, Thursday, and Friday in August"
     ).map(_.cron).zipWithIndex.foreach { t =>
       val (test, run) = t
 
