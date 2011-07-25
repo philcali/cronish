@@ -1,3 +1,4 @@
-libraryDependencies += "net.databinder" %% "conscript-plugin" % "0.3.0"
-
-libraryDependencies += "com.github.philcali" %% "sbt-cx-docco" % "0.0.4"
+libraryDependencies <++= (sbtVersion) { (sv) => Seq ( 
+  "net.databinder" %% "conscript-plugin" % ("0.3.1_sbt" + sv),
+  "com.github.philcali" %% "sbt-cx-docco" % ("sbt" + sv + "_0.0.5")
+)}
