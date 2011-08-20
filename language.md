@@ -72,4 +72,4 @@ Putting it to the test:
     Every other day from the weekend
     Every Wednesday at midnight in July, August, and September
     Every day in September at midnight
-    Every day at 1:00-2:30 
+    Every day at 1pm-2pm 
