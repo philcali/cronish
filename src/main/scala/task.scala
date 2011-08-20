@@ -56,12 +56,14 @@ class CronTask(work: => Unit,
     new CronTask(work, description, startHandler, errHandler, Some(() => handler))
 }
 
-trait StopGap {
+sealed trait StopGap {
   def check: Option[Int]
   def times(limit: Int) = new Limited(limit)
 }
 
-class Limited(var limit: Int) extends StopGap {
+class Limited(initial: Int) extends StopGap {
+  private var limit = initial
+
   require(limit > 0)
 
   def check = {
