@@ -85,6 +85,34 @@ An example of the three below:
 
     reseted starting now + 1.day
 
+A cron task can optionally handle exceptions, a pre-start hook, and a ending hook.
+Take a look below:
+
+```scala
+// These are formed in the task definition phase
+val spoken = job (println ("My name is Philip Cali."))
+
+val greetings = spoken starts (println("Hi, there...")) ends (println("How are you?"))
+
+greetings runs "every second" exactly 2.times
+
+/**
+ * Hi, there...
+ * My name is Philip Cali.
+ * My name is Philip Cali.
+ * How are you?
+ */
+
+val badJob = job {
+  throw new RuntimeException("Something terrible happened")
+} catches {
+  case e: RuntimeException => // Report this... rollback... whatever
+  case _ => Scheduled.destroyAll()
+}
+
+badJob runs "every 5 seconds"
+``` 
+
 ## Cron Management
 
 All jobs described previously are loaded up in a singleton Cron manager 
@@ -95,7 +123,7 @@ via the `Scheduled` object.
     Scheduled.active.foreach(_.stop)
     
     // Destroys all jobs (same as above)
-    Scheduled.destroyAll
+    Scheduled.destroyAll()
 
     // Destroys a single instance
     Scheduled.destroy(Scheduled.active(0))
