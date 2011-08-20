@@ -9,6 +9,8 @@ organization := "com.github.philcali"
 
 version := "0.0.2"
 
+parallelExecution in Test := false
+
 crossScalaVersions := Seq("2.9.0-1", "2.9.0", "2.8.1", "2.8.0")
 
 libraryDependencies <+= (organization) (_ %% "scalendar" % "0.0.5")
