@@ -1,7 +1,7 @@
-package com.github.philcali.cronish
+package cronish
 package dsl
 
-import com.github.philcali.scalendar._
+import scalendar._
 import Logging._
 
 object Main {
