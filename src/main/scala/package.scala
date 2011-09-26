@@ -1,4 +1,4 @@
-package com.github.philcali.cronish 
+package cronish
 
 package object dsl {
   implicit def string2cron(syntax: String) = Cronish(syntax)

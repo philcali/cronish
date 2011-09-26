@@ -1,4 +1,3 @@
-package com.github.philcali
 package cronish
 
 import scalendar._

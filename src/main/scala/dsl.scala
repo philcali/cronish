@@ -1,4 +1,3 @@
-package com.github.philcali
 package cronish
 package dsl
 
@@ -6,9 +5,7 @@ import scala.util.parsing.combinator._
 
 import scalendar._
 
-object Cronish extends RegexParsers {
-  def apply (syntax: String) = new Cronish(cronOption(syntax)) 
-
+trait CronParsers extends RegexParsers {
   def monthnames = (1 to 12).map(Month(_).toString) 
 
   def daynames = (1 to 7).map(Day(_).toString)
@@ -207,6 +204,10 @@ object Cronish extends RegexParsers {
     val (mods, fin) = result.partition(_._1.endsWith("Modifier"))
     for((k, v) <- fin) yield((k, v + mods.getOrElse(k+"Modifier", "")))
   }
+}
+
+object Cronish extends CronParsers {
+  def apply (syntax: String) = new Cronish(cronOption(syntax)) 
 
   // Safe conversion
   private def cronOption(syntax: String) = {

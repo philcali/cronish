@@ -1,4 +1,4 @@
-package com.github.philcali.cronish
+package cronish
 
 import java.util.logging.{Logger, Level}
 
