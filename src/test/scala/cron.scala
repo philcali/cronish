@@ -128,7 +128,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
  
   it should "be able to perform delayed starts" in {
     var counter = 0
-    val countTask = job { counter += 1 }
+    val countTask = job { counter += 1 } describedAs "Delayed Starts"
     val delayed = countTask runs "every second" in 100.milliseconds 
 
     counter should be === 0
@@ -144,12 +144,12 @@ class CronTest extends FlatSpec with ShouldMatchers {
   }
 
   it should "be able to be reset and delayed fluently" in {
-    val one = job(println("End of the World")) runs "every second" 
-    
+    val one = job(println("End of the World")) describedAs "Fluently" runs "every second" 
     val reseted = one.reset() 
 
     val delayed = reseted in 4.minutes
-    
+
+    Thread.sleep(15)
     delayed.stop()
   }
 
@@ -160,6 +160,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     job(println("Tell like it is")) describedAs "dude" runs yearly
 
     val active = Scheduled.active
+
     val expected = "Tell him later on dude"
     active.map(_.task.description.get).mkString(" ") should be === expected 
     

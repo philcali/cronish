@@ -222,18 +222,15 @@ object Cronish extends CronParsers {
           parsed.getOrElse("dweek", "*"),
           parsed.getOrElse("year", "*")
         ))
-      case Failure(msg, _) =>
-        Left(msg) 
-      case Error(msg, _) =>
-        Left(msg)
+      case r: ParseResult[_] => Left(r)
     }
   }
 }
 
 // Public API through Cronish object
-final class Cronish private (contents: Either[String, Cron]) {
-  def cron = cronOption fold ({ msg =>
-    throw new IllegalArgumentException(msg)
+final class Cronish private (contents: Either[Cronish.ParseResult[_], Cron]) {
+  def cron = cronOption fold ({ failure =>
+    throw new IllegalArgumentException(failure.toString)
   }, a => a) 
 
   def crons = cron.toString

@@ -1,7 +1,11 @@
 package cronish
 package dsl
 
-import java.util.{Timer, TimerTask}
+import java.util.concurrent.{
+  Executors, 
+  TimeUnit
+}
+import TimeUnit.MILLISECONDS
 
 import actors.Actor
 
@@ -32,9 +36,14 @@ class CronTask(work: => Unit,
            val description: Option[String] = None, 
            val startHandler: Option[Function0[Unit]] = None,
            val errHandler: Option[(Exception => Unit)] = None,
-           val exitHandler: Option[Function0[Unit]] = None) {
+           val exitHandler: Option[Function0[Unit]] = None) extends Runnable {
 
-  def run() = work
+  def run() = try {
+    work
+  } catch {
+    case e: Exception =>
+      errHandler.map(_.apply(e))
+  }
 
   def runs(definition: String) = executes(definition)
   def runs(definition: Cron) = executes(definition)
@@ -87,13 +96,12 @@ class Scheduled private (
     val delay: Long,
     val stopGap: StopGap) extends Actor { parent => 
 
+  private val timer = Executors.newScheduledThreadPool(1)
+
   private case object Stop
   private case object Execute
 
   private var executing = true
-
-  // Daemon Pulsar
-  private val timer = new Timer(true)
 
   def stop(): Unit = {
     task.exitHandler.map(_.apply())
@@ -107,17 +115,10 @@ class Scheduled private (
       react {
         case Stop => 
           executing = false 
-          timer.cancel()
           Scheduled.destroy(this) 
+          timer.shutdownNow()
         case Execute => 
-          try {
-            task.run()
-          } catch {
-            case e: Exception =>
-              task.errHandler.map(_.apply(e))
-          } finally {
-            stopGap.check.map(_ => schedule).orElse(Some(stop))
-          }
+          stopGap.check.map(_ => schedule).orElse(Some(stop))
       }
     }
   }
@@ -148,25 +149,24 @@ class Scheduled private (
     Scheduled(task, definition, d.milliseconds, stopGap)
   }
 
-  private def interval: TimerTask = new TimerTask {
-    def run() = parent ! Execute
+  private def interval: Runnable = new Runnable {
+    def run() = {
+      parent ! Execute
+      task.run()
+    }
   }
  
   private def schedule = try {
-    timer.schedule(interval, definition.next) 
+    timer.schedule(interval, definition.next, MILLISECONDS) 
   } catch {
-    case e: IllegalArgumentException => 
-      info("Given cron scheduler a negative time: %s".format(definition.full))
-    case e: IllegalStateException => 
-      info("Tried to initiate cron task after scheduler stopped.")
-    case e: Exception =>
-      severe("Tried rescheduling task: %s".format(e.getMessage))
+    case e: Exception => 
+      severe("Scheduled task was rejected: %s".format(e.getMessage))
   }
 
   private def delayedStart() = if (delay <= 0) initStart else {
-    timer.schedule(new TimerTask {
+    timer.schedule(new Runnable {
       def run() = initStart 
-    }, delay)
+    }, delay, MILLISECONDS)
   }
 
   private def initStart() = {
