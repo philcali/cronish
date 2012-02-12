@@ -24,13 +24,13 @@ object Main {
       "every midnight on the last Friday in every month",
       "every 30 minutes at midnight on the 4th day in July",
       "every day at 3:30 on Tuesday, Thursday, and Friday in August"
-    ).map(_.cron).zipWithIndex.foreach { t =>
+    ).zipWithIndex.foreach { t =>
       val (test, run) = t
 
       val current = Scalendar.now
-      val millis = test.nextFrom(current)
-      println("%d: %s" format(run, current))
-      println("%d: %s" format(run, Scalendar(current.time + millis)))
+      val millis = test.cron.nextFrom(current)
+      println("%d (%s): %s" format(run, test, current))
+      println("%d (%s): %s" format(run, test, Scalendar(current.time + millis)))
     }
 
     val thisJob = job {
