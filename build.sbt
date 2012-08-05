@@ -2,7 +2,7 @@ name := "cronish"
 
 organization := "com.github.philcali"
 
-version := "0.1.1"
+version := "0.1.2"
 
 parallelExecution in Test := false
 
