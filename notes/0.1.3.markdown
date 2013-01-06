@@ -1,0 +1,4 @@
+## 0.1.3
+
+- Scala 2.10.0
+- Underlying actor implementation switched to Akka

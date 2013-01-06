@@ -40,7 +40,7 @@ object Main {
     val advancedJob = thisJob starts {
       println ("I'm starting up!")
     } catches {
-      case e: Exception => 
+      case e: Exception =>
         println("This is horrible: %s".format(e.getMessage))
     } ends {
       println ("I'm stopping now")

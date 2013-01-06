@@ -30,9 +30,15 @@ object Scheduled {
   def destroy(old: Scheduled) = crons -= old
 
   @deprecated("Use Scheduled.shutdown instead")
-  def destroyAll = crons foreach (_.stop)
+  def destroyAll = {
+    crons foreach (_.stop)
+    shutdown()
+  }
 
-  def shutdown() = pool.shutdown
+  def shutdown() = {
+    crons.clear()
+    pool.shutdown
+  }
 
   def active = crons.toList
 
