@@ -6,7 +6,7 @@ import scala.util.parsing.combinator._
 import scalendar._
 
 trait CronParsers extends RegexParsers {
-  def monthnames = (1 to 12).map(Month(_).toString) 
+  def monthnames = (1 to 12).map(Month(_).toString)
 
   def daynames = (1 to 7).map(Day(_).toString)
 
@@ -36,12 +36,12 @@ trait CronParsers extends RegexParsers {
   val midnight = "midnight" ^^ (_ => ("0", "0", "0"))
 
   // Hour suffixes
-  val am = number <~ "am" ^^ { 
-    case hour => (hour, "0", "0") 
+  val am = number <~ "am" ^^ {
+    case hour => (hour, "0", "0")
   }
   val pm = number <~ "pm" ^^ {
-    case hour => if(hour.toInt < 12) ((hour.toInt + 12).toString, "0", "0") 
-                 else (hour, "0", "0") 
+    case hour => if(hour.toInt < 12) ((hour.toInt + 12).toString, "0", "0")
+                 else (hour, "0", "0")
   }
 
   // Day of week Keywords
@@ -73,10 +73,10 @@ trait CronParsers extends RegexParsers {
     case (hours, minutes, _)~":"~seconds => (hours, minutes, seconds)
   }
 
-  def timeValue = hourValue | fullClockValue | clockValue 
+  def timeValue = hourValue | fullClockValue | clockValue
 
   def timeSymbol = (timeValue | midnight | noon) ^^ {
-    case (hours, minutes, seconds) => 
+    case (hours, minutes, seconds) =>
       Map("hour" -> hours, "minute" -> minutes, "second" -> seconds)
   }
 
@@ -147,16 +147,16 @@ trait CronParsers extends RegexParsers {
   def dayConnector = "on" ~> (genlists("dweek", dayOfWeek)
                             | genreps("dweek", dayOfWeek)
                             | dayOfWeek
-                            | "the" ~> dayOfWeekSpecial 
+                            | "the" ~> dayOfWeekSpecial
                             | dayIncrement)
 
   def dayOfMonthConnector = "on the" ~> (genlists("day", dayOfMonth) <~ "day"
                                       | genreps("day", dayOfMonth) <~ "days"
-                                      | dayOfMonth <~ "day") 
+                                      | dayOfMonth <~ "day")
 
-  def monthConnector = "in" ~> (genlists("month", monthValue) 
-                              | genreps("month", monthValue) 
-                              | monthValue 
+  def monthConnector = "in" ~> (genlists("month", monthValue)
+                              | genreps("month", monthValue)
+                              | monthValue
                               | fieldIncrementers("month"))
 
   def yearConnector = "in the year" ~> (genlists("year", yearValue)
@@ -164,10 +164,10 @@ trait CronParsers extends RegexParsers {
                                       | yearValue 
                                       | fieldIncrementers("year"))
 
-  def connector = (timeConnector 
-                 | dayConnector 
-                 | yearConnector 
-                 | monthConnector 
+  def connector = (timeConnector
+                 | dayConnector
+                 | yearConnector
+                 | monthConnector
                  | dayOfMonthConnector)
 
   def connectors = rep(connector) ^^ {
@@ -177,23 +177,23 @@ trait CronParsers extends RegexParsers {
   // Incremental Syntax
   def keywordIncremental = every ~> timeSymbol
   def timeIncrement = (keywordIncremental
-                     | fieldIncrementers("second") 
-                     | fieldIncrementers("minute") 
-                     | fieldIncrementers("hour")) 
-  def dayMIncrement = every ~> dayOfMonth <~ "day" 
+                     | fieldIncrementers("second")
+                     | fieldIncrementers("minute")
+                     | fieldIncrementers("hour"))
+  def dayMIncrement = every ~> dayOfMonth <~ "day"
   def otherdayW = other ~> dayValue ^^ (_ + "/2")
   def dayWIncrement = every ~> (dayValue | otherdayW) ^^ {
     case day => Map("dweek" -> day)
   }
-  def dayIncrement = (fieldIncrementers("day") 
-                    | dayMIncrement 
-                    | dayWIncrement 
+  def dayIncrement = (fieldIncrementers("day")
+                    | dayMIncrement
+                    | dayWIncrement
                     | every ~> dayOfWeekSpecial)
 
-  def increment = (timeIncrement 
-                 | dayIncrement 
-                 | fieldIncrementers("year") 
-                 | fieldIncrementers("month")) 
+  def increment = (timeIncrement
+                 | dayIncrement
+                 | fieldIncrementers("year")
+                 | fieldIncrementers("month"))
 
   def incrementers = increment ~ connectors ^^ {
     case incremented ~ values => applyModifers(values ++ incremented)
@@ -207,7 +207,7 @@ trait CronParsers extends RegexParsers {
 }
 
 object Cronish extends CronParsers {
-  def apply (syntax: String) = new Cronish(cronOption(syntax)) 
+  def apply (syntax: String) = new Cronish(cronOption(syntax))
 
   // Safe conversion
   private def cronOption(syntax: String) = {
@@ -231,7 +231,7 @@ object Cronish extends CronParsers {
 final class Cronish private (contents: Either[Cronish.ParseResult[_], Cron]) {
   def cron = cronOption fold ({ failure =>
     throw new IllegalArgumentException(failure.toString)
-  }, a => a) 
+  }, a => a)
 
   def crons = cron.toString
 

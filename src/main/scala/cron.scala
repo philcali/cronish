@@ -3,11 +3,11 @@ package cronish
 import scalendar._
 import java.util.Calendar._
 
-case class Cron (second: String, 
-                 minute: String, 
-                 hour: String, 
-                 dmonth: String, 
-                 month: String, 
+case class Cron (second: String,
+                 minute: String,
+                 hour: String,
+                 dmonth: String,
+                 month: String,
                  dweek: String,
                  year: String) {
 
@@ -100,7 +100,7 @@ case class Cron (second: String,
   case class SecondField(field: String, now: Scalendar) extends BaseFieldEval {
     val fieldType = SECOND
     val everything = (0 to 59)
-    
+
     def resetWith(cal: Scalendar) = SecondField(field, cal)
   }
 
@@ -133,11 +133,11 @@ case class Cron (second: String,
     val everything = (1 to 12)
 
     override def valued(cal: Scalendar) = super.valued(cal) + 1
-    override def handler(cal: Scalendar, amount: Int) = 
+    override def handler(cal: Scalendar, amount: Int) =
       super.handler(cal, amount - 1)
 
-    // Bumping the month requires us to zero roll the days 
-    override def evaluateNext(cal: Scalendar) = 
+    // Bumping the month requires us to zero roll the days
+    override def evaluateNext(cal: Scalendar) =
       super.evaluateNext(cal.day(1))
 
     def resetWith(cal: Scalendar) = MonthField(field, cal)
@@ -177,16 +177,16 @@ case class Cron (second: String,
       // A regular last means we simply use the last day of the week
       case "L" => cal.inWeek(Day.Saturday)
       // Any defined list of fields means we're shooting for week increments
-      case FieldList(fields) => 
+      case FieldList(fields) =>
         fields.find(f => cal.inWeek(f + 1) > cal) match {
           case Some(f) => cal.inWeek(f + 1)
-          case None => 
+          case None =>
             val test = cal.inWeek(fields.head + 1) + 1.week
             if (test.month != cal.month) findAll(cal, fields.head + 1).head.start
             else test
         }
       // Modifiers are special syntaxes for day of week
-      case FieldModifier(value, mod) => 
+      case FieldModifier(value, mod) =>
         val day = value.toInt + 1
         val weeks = cal.calendarMonth.by(1 week).foldLeft(0) { (in, _) => in + 1 }
         // Find the first instance of the day
@@ -196,7 +196,7 @@ case class Cron (second: String,
           (0 until weeks / mod).map(e => d.start + (mod * e).weeks)
             .find(_ >= cal) match {
             case Some(t) => t
-            case None => 
+            case None =>
               val test = cal.inWeek(day)
               if (test > cal) test + (mod - 1).week else test + mod.week
           }
@@ -211,7 +211,7 @@ case class Cron (second: String,
         // There exists this day
         else occur.zipWithIndex.find(_._2 + 1 == mod) match {
           case Some((d, _)) => d.start
-          case None => cal 
+          case None => cal
         }
       // Field Last are yet another special day of week syntax
       case FieldLast(value) =>
@@ -220,14 +220,14 @@ case class Cron (second: String,
         val last = begin + 1.month - 1.day
         val attempt = last.inWeek(day)
         if (attempt.month != last.month) attempt - 1.week
-        else attempt 
+        else attempt
       // A static number
       case _ =>
         val day = field.toInt + 1
-        val attempt = if(day <= cal.inWeek && cal <= now) cal.inWeek(day) + 1.week 
+        val attempt = if(day <= cal.inWeek && cal <= now) cal.inWeek(day) + 1.week
                       else cal.inWeek(day)
-        if (attempt.month != now.month) findAll(attempt, day).head.start 
-        else attempt 
+        if (attempt.month != now.month) findAll(attempt, day).head.start
+        else attempt
     }
   }
 
@@ -251,7 +251,7 @@ case class Cron (second: String,
     }
   }
 
-  override def toString = 
+  override def toString =
     List(minute, hour, dmonth, month, dweek) mkString (" ")
 
   def next = nextFrom(Scalendar.now)
@@ -264,7 +264,7 @@ case class Cron (second: String,
   def nextFrom(now: Scalendar) = {
     val dmonthField = DayField(dmonth, now)
     val dweekField = DayOfWeekField(dweek, now)
-    val dayField = if (dweekField.isNotDefined) dmonthField else dweekField 
+    val dayField = if (dweekField.isNotDefined) dmonthField else dweekField
 
     val fields = List (
       SecondField(second, now),
@@ -282,24 +282,24 @@ case class Cron (second: String,
       field.resetWith(in).evaluate(in)
     }
 
-    lazy val rolled = fields.foldLeft(attempt) { (in, field) => 
-      field.evaluateHead(in) 
-    } 
+    lazy val rolled = fields.foldLeft(attempt) { (in, field) =>
+      field.evaluateHead(in)
+    }
 
     // Not good enough for a first attempt
     // If the first attempt works, then we use it
     val next = if (attempt <= now) {
       // Find a game changing potential, if one exists
       val interest = indexed.filter(_._1.isPotential).find {
-        case (field, ix) => 
-          val test = field.evaluateNext(attempt) 
+        case (field, ix) =>
+          val test = field.evaluateNext(attempt)
           test > attempt && test > now
       }
 
       // If a game changing potential was found, then we use it
       // otherwise we get the head of each potential
       interest match {
-        case Some((f, ix)) => indexed.reverse.foldLeft(attempt) { 
+        case Some((f, ix)) => indexed.reverse.foldLeft(attempt) {
           (in, dup) => dup match {
             case (field, i) if i < ix => field.resetWith(in).evaluateHead(in)
             case (field, i) if i == ix => field.evaluateNext(in)
@@ -308,9 +308,9 @@ case class Cron (second: String,
         }
         case None => fields.foldLeft(attempt) { (in, field) =>
           field.evaluateHead(in)
-        } 
+        }
       }
-    } else if (rolled > now) rolled else attempt 
+    } else if (rolled > now) rolled else attempt
 
     (now to next).delta.milliseconds
   }

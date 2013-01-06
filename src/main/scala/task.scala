@@ -2,24 +2,26 @@ package cronish
 package dsl
 
 import java.util.concurrent.{
-  Executors, 
+  Executors,
   TimeUnit
 }
 import TimeUnit.MILLISECONDS
 
-import actors.Actor
+import akka.actor.{ Actor, ActorSystem, Props }
 
 import scalendar._
 import conversions._
 import Logging._
 
 object Scheduled {
+  protected val pool = ActorSystem("CronTasks")
+
   private val crons = collection.mutable.ListBuffer[Scheduled]()
 
-  def apply(task: CronTask, 
-            definition: Cron, 
-            delay: Long = 15, 
-            stopper: StopGap = Infinite): Scheduled = { 
+  def apply(task: CronTask,
+            definition: Cron,
+            delay: Long = 15,
+            stopper: StopGap = Infinite): Scheduled = {
     val ros = new Scheduled(task, definition, delay, stopper)
     crons += ros
     ros
@@ -27,13 +29,20 @@ object Scheduled {
 
   def destroy(old: Scheduled) = crons -= old
 
+  @deprecated("Use Scheduled.shutdown instead")
   def destroyAll = crons foreach (_.stop)
 
+  def shutdown() = pool.shutdown
+
   def active = crons.toList
+
+  java.lang.Runtime.getRuntime().addShutdownHook(new Thread {
+    override def run() { shutdown() }
+  })
 }
 
 class CronTask(work: => Unit,
-           val description: Option[String] = None, 
+           val description: Option[String] = None,
            val startHandler: Option[Function0[Unit]] = None,
            val errHandler: Option[(Exception => Unit)] = None,
            val exitHandler: Option[Function0[Unit]] = None) extends Runnable {
@@ -51,7 +60,7 @@ class CronTask(work: => Unit,
   def executes(definition: String): Scheduled = executes (definition.cron)
   def executes(definition: Cron): Scheduled = Scheduled(this, definition)
 
-  def describedAs(something: String) = 
+  def describedAs(something: String) =
     new CronTask(work, Some(something), startHandler, errHandler, exitHandler)
 
   def starts(handler: => Unit) =
@@ -91,36 +100,45 @@ case object Infinite extends StopGap {
 }
 
 class Scheduled private (
-    val task: CronTask, 
-    val definition: Cron, 
+    val task: CronTask,
+    val definition: Cron,
     val delay: Long,
-    val stopGap: StopGap) extends Actor { parent => 
+    val stopGap: StopGap) { parent =>
 
   private val timer = Executors.newScheduledThreadPool(1)
+
+  private val handler = Scheduled.pool.actorOf(Props(new Handler))
 
   private case object Stop
   private case object Execute
 
-  private var executing = true
-
-  def stop(): Unit = {
-    task.exitHandler.map(_.apply())
-    parent ! Stop 
-  }
-
-  def act = {
-    delayedStart
-
-    loopWhile (executing) {
-      react {
-        case Stop => 
-          executing = false 
-          Scheduled.destroy(this) 
-          timer.shutdownNow()
-        case Execute => 
-          stopGap.check.map(_ => schedule).orElse(Some(stop))
+  private class Handler extends Actor {
+    override def preStart() {
+      if (delay <= 0) parent.initStart else {
+        try {
+          parent.timer.schedule(new Runnable {
+            def run() = parent.initStart
+          }, delay, MILLISECONDS)
+        } catch {
+          case e: Exception => info("Scheduled task was restarted")
+        }
       }
     }
+
+    def receive = {
+      case Stop => context.stop(self)
+      case Execute =>
+        parent.stopGap.check
+              .map { _ => parent.task.run(); parent.schedule }
+              .orElse(Some(parent.stop))
+    }
+  }
+
+  def stop(): Unit = {
+    timer.shutdown()
+    task.exitHandler.map(_.apply())
+    Scheduled.destroy(parent)
+    handler ! Stop
   }
 
   def reset() = preserve {
@@ -132,12 +150,12 @@ class Scheduled private (
   }
 
   def until(date: Scalendar) = preserve {
-    Scheduled(task, definition, delay, new Timed(date)) 
+    Scheduled(task, definition, delay, new Timed(date))
   }
 
   def starting(date: Scalendar) = preserve {
     val now = Scalendar.now
-    val larger = if (date < now) now else date 
+    val larger = if (date < now) now else date
     Scheduled(task, definition, larger.time - now.time, stopGap)
   }
 
@@ -151,22 +169,15 @@ class Scheduled private (
 
   private def interval: Runnable = new Runnable {
     def run() = {
-      parent ! Execute
-      task.run()
+      handler ! Execute
     }
   }
- 
-  private def schedule = try {
-    timer.schedule(interval, definition.next, MILLISECONDS) 
-  } catch {
-    case e: Exception => 
-      severe("Scheduled task was rejected: %s".format(e.getMessage))
-  }
 
-  private def delayedStart() = if (delay <= 0) initStart else {
-    timer.schedule(new Runnable {
-      def run() = initStart 
-    }, delay, MILLISECONDS)
+  private def schedule = try {
+    timer.schedule(interval, definition.next, MILLISECONDS)
+  } catch {
+    case e: Exception =>
+      severe("Scheduled task was rejected: %s".format(e.getMessage))
   }
 
   private def initStart() = {
@@ -175,8 +186,6 @@ class Scheduled private (
   }
 
   private def preserve[A](block: => A): A = {
-    parent ! Stop; block
+    stop; block
   }
-
-  start()
 }

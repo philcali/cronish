@@ -81,7 +81,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     }
 
     test.isInstanceOf[CronTask] should be === true
-    
+
     val testjob = test executes "every second"
 
     testjob.isInstanceOf[Scheduled] should be === true
@@ -95,7 +95,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
     val example = task {
       runs += 1
     }
-    
+
     val exampleJob = example executes "every second"
 
     // We'll sleep for a second
@@ -113,23 +113,23 @@ class CronTest extends FlatSpec with ShouldMatchers {
 
   it should "be able to have a user defined description" in {
     val nodesc = job (println("Will it happen?")) runs "every second"
-    
+
     val expected = "A really cool description"
     val other = job {
       println("Blah blah")
     } describedAs expected executes daily
- 
+
     nodesc.task.description should be === None
     other.task.description should be === Some(expected)
-    
+
     nodesc.stop()
     other.stop()
   }
- 
+
   it should "be able to perform delayed starts" in {
     var counter = 0
     val countTask = job { counter += 1 } describedAs "Delayed Starts"
-    val delayed = countTask runs "every second" in 100.milliseconds 
+    val delayed = countTask runs "every second" in 100.milliseconds
 
     counter should be === 0
     Thread.sleep(1100)
@@ -144,8 +144,8 @@ class CronTest extends FlatSpec with ShouldMatchers {
   }
 
   it should "be able to be reset and delayed fluently" in {
-    val one = job(println("End of the World")) describedAs "Fluently" runs "every second" 
-    val reseted = one.reset() 
+    val one = job(println("End of the World")) describedAs "Fluently" runs "every second"
+    val reseted = one.reset()
 
     val delayed = reseted in 4.minutes
 
@@ -155,15 +155,15 @@ class CronTest extends FlatSpec with ShouldMatchers {
 
   "Cron Management" should "be completely hidden from user" in {
     job(println("Tell like it is")) describedAs "Tell him" runs hourly
-    job(println("Tell like it is")) describedAs "later" runs daily 
+    job(println("Tell like it is")) describedAs "later" runs daily
     job(println("Tell like it is")) describedAs "on" runs monthly
     job(println("Tell like it is")) describedAs "dude" runs yearly
 
     val active = Scheduled.active
 
     val expected = "Tell him later on dude"
-    active.map(_.task.description.get).mkString(" ") should be === expected 
-    
+    active.map(_.task.description.get).mkString(" ") should be === expected
+
     active.foreach(_.stop())
   }
 
@@ -175,15 +175,15 @@ class CronTest extends FlatSpec with ShouldMatchers {
     val running = exampleJob runs "every second"
 
     Thread.sleep(1000)
-    
+
     running.stop()
   }
 
   it should "be able to add starting and stopping handlers" in {
     var counter = 1
-    
+
     val exampleJob = job (counter += 1) starts (counter -= 1) ends (counter = 0)
-    
+
     exampleJob runs "every second" stop()
 
     counter should be === 0

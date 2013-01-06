@@ -2,18 +2,42 @@ name := "cronish"
 
 organization := "com.github.philcali"
 
-version := "0.1.2"
+version := "0.1.3"
 
 parallelExecution in Test := false
 
+scalaVersion := "2.10.0"
+
+scalacOptions <++= scalaVersion map {
+  case sv if sv startsWith "2.10" => Seq("-language:postfixOps")
+  case _ => Nil
+}
+
 crossScalaVersions := Seq(
-  "2.9.2", "2.9.1", "2.9.0-1",
-  "2.9.0", "2.8.2", "2.8.1"
+  "2.10.0",
+  "2.9.2", "2.9.1", "2.9.0-1", "2.9.0"
 )
 
-libraryDependencies <+= (organization) (_ %% "scalendar" % "0.1.3")
+resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "1.7.2" % "test"
+scalacOptions <++= scalaVersion map {
+  case sv if sv startsWith "2.10" =>
+    Seq("-feature", "-language:implicitConversions")
+  case _ => Nil
+}
+
+libraryDependencies <+= (organization) (_ %% "scalendar" % "0.1.4")
+
+libraryDependencies <++= scalaVersion {
+  case sv if sv startsWith "2.10" => Seq(
+    "com.typesafe.akka" %% "akka-actor" % "2.1.0",
+    "org.scalatest" %% "scalatest" % "1.9" % "test"
+  )
+  case _ => Seq(
+    "com.typesafe.akka" % "akka-actor" % "2.0.5",
+    "org.scalatest" %% "scalatest" % "1.8" % "test"
+  )
+}
 
 publishTo <<= version { v =>
   val nexus = "https://oss.sonatype.org/"
