@@ -50,6 +50,6 @@ object Main {
 
     Thread.sleep(3000)
 
-    Scheduled.destroyAll
+    Scheduled.shutdown()
   }
 }

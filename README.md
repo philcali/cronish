@@ -123,10 +123,10 @@ via the `Scheduled` object.
     Scheduled.active.foreach(_.stop)
     
     // Destroys all jobs (same as above)
-    Scheduled.destroyAll()
+    Scheduled.shutdown()
 
     // Destroys a single instance
-    Scheduled.destroy(Scheduled.active(0))
+    Scheduled.stop(Scheduled.active(0))
 
 ## Installation
 

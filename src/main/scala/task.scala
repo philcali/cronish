@@ -27,17 +27,17 @@ object Scheduled {
     ros
   }
 
-  def destroy(old: Scheduled) = crons -= old
+  @deprecated("Use Scheduled.stop instead")
+  def destroy(old: Scheduled) = stop(old)
+
+  def stop(old: Scheduled) = crons -= old
 
   @deprecated("Use Scheduled.shutdown instead")
-  def destroyAll = {
-    crons foreach (_.stop)
-    shutdown()
-  }
+  def destroyAll = shutdown()
 
   def shutdown() = {
-    crons.clear()
-    pool.shutdown
+    crons foreach (_.stop)
+    pool.shutdown()
   }
 
   def active = crons.toList
@@ -143,7 +143,7 @@ class Scheduled private (
   def stop(): Unit = {
     timer.shutdown()
     task.exitHandler.map(_.apply())
-    Scheduled.destroy(parent)
+    Scheduled.stop(parent)
     handler ! Stop
   }
 
