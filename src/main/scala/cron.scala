@@ -3,6 +3,18 @@ package cronish
 import scalendar._
 import java.util.Calendar._
 
+/**
+ * Represents a cron schedule definition. See [[http://en.wikipedia.org/wiki/Cron]] for a definition of the parameters.
+ *
+ * @constructor create a specific schedule
+ * @param second the second definition of the schedule
+ * @param minute the minute definition
+ * @param hour   the hour definition
+ * @param dmonth the day of month definition
+ * @param month  the month definition
+ * @param dweek  the day of week definition
+ * @param year   the year definition
+ */
 case class Cron (second: String,
                  minute: String,
                  hour: String,
@@ -254,14 +266,27 @@ case class Cron (second: String,
   override def toString =
     List(minute, hour, dmonth, month, dweek) mkString (" ")
 
-  def next = nextFrom(Scalendar.now)
+  /**
+   * returns the number of milliseconds form the current time to the next schedule time. This is equivalent to:
+   *
+   * {{
+   * nextFrom(Scalendar.now)
+   * }}
+   */
+  def next: Long = nextFrom(Scalendar.now)
 
+  /**
+   * returns the number of milliseconds from the epoch time to the next schedule time.
+   */
   def nextTime = {
     val now = Scalendar.now
     Scalendar(now.time + nextFrom(now))
   }
 
-  def nextFrom(now: Scalendar) = {
+  /**
+   * returns the number of milliseconds from the defined date to the next schedule time
+   */
+  def nextFrom(now: Scalendar): Long = {
     val dmonthField = DayField(dmonth, now)
     val dweekField = DayOfWeekField(dweek, now)
     val dayField = if (dweekField.isNotDefined) dmonthField else dweekField
