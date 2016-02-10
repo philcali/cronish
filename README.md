@@ -38,6 +38,7 @@ A `Cron` object created from an expression, or created manually, can determine i
 specific time in the future. Here's a few examples of this:
 
     import cronish._
+    import cronish.dsl._
 
     val cron = "every 10 days".cron
     val now = Scalendar.now
