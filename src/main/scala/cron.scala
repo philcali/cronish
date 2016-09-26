@@ -190,7 +190,7 @@ case class Cron (second: String,
       case "L" => cal.inWeek(Day.Saturday)
       // Any defined list of fields means we're shooting for week increments
       case FieldList(fields) =>
-        fields.find(f => cal.inWeek(f + 1) > cal) match {
+        fields.find(f => cal.inWeek(f + 1) >= cal) match {
           case Some(f) => cal.inWeek(f + 1)
           case None =>
             val test = cal.inWeek(fields.head + 1) + 1.week
