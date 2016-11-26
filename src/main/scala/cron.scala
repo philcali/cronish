@@ -236,7 +236,7 @@ case class Cron (second: String,
       // A static number
       case _ =>
         val day = field.toInt + 1
-        val attempt = if(day <= cal.inWeek && cal <= now) cal.inWeek(day) + 1.week
+        val attempt = if(day < cal.inWeek && cal <= now) cal.inWeek(day) + 1.week
                       else cal.inWeek(day)
         if (attempt.month != now.month) findAll(attempt, day).head.start
         else attempt

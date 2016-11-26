@@ -5,9 +5,15 @@ package test
 import scalendar._
 
 import org.scalatest.FlatSpec
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.ShouldMatchers
 
-class CronTest extends FlatSpec with ShouldMatchers {
+class CronTest extends FlatSpec with ShouldMatchers with BeforeAndAfterAll {
+
+  override def afterAll() = {
+    Scheduled.shutdown()
+  }
+
   "Cron dialect" should "be parsable" in {
     "every day at midnight".crons should be === "0 0 * * *" 
     "every 15 minutes at noon".crons should be === "*/15 12 * * *"
@@ -237,7 +243,7 @@ class CronTest extends FlatSpec with ShouldMatchers {
       }
     )
 
-    for (test <- tests; val (crons, expected) = test) {
+    for ((crons, expected) <- tests) {
       val cron = crons.cron
 
       val n = Scalendar.now
@@ -247,5 +253,18 @@ class CronTest extends FlatSpec with ShouldMatchers {
 
       result should be === expected(n)
     }
+  }
+
+  "A cron" should "run even if it's already in time range" in {
+    // Test related to issue #21 (https://github.com/philcali/cronish/issues/21)
+    val now   = Scalendar.now.second(0).millisecond(0)
+    val day   = now.day.name
+    val crons = List(s"Every minute on ${day}".cron,
+                     s"Every minute on ${day},${now.+(1.day).day.name}".cron,
+                     Cron("*", "*", "*", "*", "*", s"1,${now.day.inWeek -1},6", "*"))
+
+    crons.foreach(cron => {
+      Scalendar.beginDay(cron.nextTime) should be === Scalendar.beginDay(now)
+    })
   }
 }
