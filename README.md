@@ -132,7 +132,7 @@ via the `Scheduled` object.
 ## Installation
 
 ```scala
-libraryDependencies += "com.github.philcali" %% "cronish" % "0.1.3"
+libraryDependencies += "com.github.philcali" %% "cronish" % "0.1.5"
 ```
 
 [cron]: http://en.wikipedia.org/wiki/Cron#Examples_2
