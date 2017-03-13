@@ -2,16 +2,16 @@ name := "cronish"
 
 organization := "com.github.philcali"
 
-version := "0.1.3"
+version := "0.1.5"
 
 parallelExecution in Test := false
 
-scalaVersion := "2.11.0"
+scalaVersion := "2.12.1"
 
 crossScalaVersions := Seq(
+  "2.12.1",
   "2.11.0",
-  "2.10.3",
-  "2.9.2", "2.9.1", "2.9.0-1", "2.9.0"
+  "2.10.3"
 )
 
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
@@ -22,21 +22,17 @@ scalacOptions <++= scalaVersion map {
   case _ => Nil
 }
 
-libraryDependencies <+= (organization) (_ %% "scalendar" % "0.1.4")
+libraryDependencies <+= (organization) (_ %% "scalendar" % "0.1.5")
 
 libraryDependencies <++= scalaVersion {
-  case sv if sv startsWith "2.11" => Seq(
-    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.1",
-    "com.typesafe.akka" %% "akka-actor" % "2.3.2",
-    "org.scalatest" %% "scalatest" % "2.1.3" % "test"
+  case sv if (sv startsWith "2.11") || (sv startsWith "2.12") => Seq(
+    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5",
+    "com.typesafe.akka" %% "akka-actor" % "2.4.17",
+    "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   )
   case sv if sv startsWith "2.10" => Seq(
     "com.typesafe.akka" %% "akka-actor" % "2.1.0",
     "org.scalatest" %% "scalatest" % "1.9" % "test"
-  )
-  case _ => Seq(
-    "com.typesafe.akka" % "akka-actor" % "2.0.5",
-    "org.scalatest" %% "scalatest" % "1.8" % "test"
   )
 }
 
