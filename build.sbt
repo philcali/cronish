@@ -6,10 +6,10 @@ version := "0.1.5"
 
 parallelExecution in Test := false
 
-scalaVersion := "2.12.1"
+scalaVersion := "2.12.4"
 
 crossScalaVersions := Seq(
-  "2.12.1",
+  "2.12.4",
   "2.11.0",
   "2.10.3"
 )
@@ -28,7 +28,7 @@ libraryDependencies <++= scalaVersion {
   case sv if (sv startsWith "2.11") || (sv startsWith "2.12") => Seq(
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5",
     "com.typesafe.akka" %% "akka-actor" % "2.4.17",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+    "org.scalatest" %% "scalatest" % "3.0.4" % "test"
   )
   case sv if sv startsWith "2.10" => Seq(
     "com.typesafe.akka" %% "akka-actor" % "2.1.0",

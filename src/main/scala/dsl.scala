@@ -81,7 +81,7 @@ trait CronParsers extends RegexParsers {
   }
 
   // Month Values
-  def monthValue = (monthnames).mkString("|").r ^^ {
+  def monthValue: Parser[Map[String, String]] = (monthnames).mkString("|").r ^^ {
     case month => Map("month" -> (monthnames.indexOf(month) + 1).toString)
   }
 
