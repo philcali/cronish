@@ -6,43 +6,23 @@ version := "0.1.5"
 
 parallelExecution in Test := false
 
-scalaVersion := "2.12.1"
+scalaVersion := "2.12.13"
 
 crossScalaVersions := Seq(
-  "2.12.1",
-  "2.11.0",
-  "2.10.3"
+  "2.12.13",
+  "2.11.12"
 )
 
-resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+resolvers += "Typesafe Repository" at "https://repo.typesafe.com/typesafe/releases/"
 
-scalacOptions <++= scalaVersion map {
-  case sv if sv startsWith "2.1" =>
-    Seq("-feature", "-language:implicitConversions", "-language:postfixOps")
-  case _ => Nil
-}
+scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:postfixOps")
 
-libraryDependencies <+= (organization) (_ %% "scalendar" % "0.1.5")
-
-libraryDependencies <++= scalaVersion {
-  case sv if (sv startsWith "2.11") || (sv startsWith "2.12") => Seq(
+libraryDependencies ++= Seq(
+    "com.github.philcali" %% "scalendar" % "0.1.5",
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5",
     "com.typesafe.akka" %% "akka-actor" % "2.4.17",
     "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   )
-  case sv if sv startsWith "2.10" => Seq(
-    "com.typesafe.akka" %% "akka-actor" % "2.1.0",
-    "org.scalatest" %% "scalatest" % "1.9" % "test"
-  )
-}
-
-publishTo <<= version { v =>
-  val nexus = "https://oss.sonatype.org/"
-  if (v.trim.endsWith("SNAPSHOT"))
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
-}
 
 publishMavenStyle := true
 
